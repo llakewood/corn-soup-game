@@ -7,40 +7,127 @@
 const GAME_W = 800;
 const GAME_H = 600;
 
-// Color palette — warm, earthy tones
+// Refined palette — warm, cinematic earth tones
 const C = {
-  sky:        0x87CEEB,
-  skyDusk:    0xE8967A,
-  earth:      0x5C4033,
-  earthLight: 0x8B6914,
-  grass:      0x6B8E23,
-  grassLight: 0x9ACD32,
-  corn:       0xF5DEB3,
-  cornDark:   0xDAA520,
-  bean:       0x8B4513,
-  beanGreen:  0x228B22,
-  squash:     0xE8A317,
-  water:      0x4A90D9,
-  fire:       0xE8651A,
-  fireGlow:   0xFFA500,
-  wood:       0x6B4226,
-  text:       0xFFF8E7,
-  textDark:   0x3E2723,
-  accent:     0xC0392B,
-  gold:       0xDAA520,
-  night:      0x1A1207,
-  parchment:  0xF5E6CA,
+  bg:         0x0F0B04,
+  bgWarm:     0x1C1308,
+  panel:      0x1A1308,
+  panelLight: 0x251C10,
+  earth:      0x4A3628,
+  earthLight: 0x6B5240,
+  grass:      0x5A7A30,
+  grassDark:  0x3E5520,
+  corn:       0xE8D5A8,
+  cornDark:   0xC4A050,
+  bean:       0x7A3A18,
+  beanGreen:  0x2E7A2E,
+  squash:     0xD4942A,
+  water:      0x5A9AC8,
+  fire:       0xD85A1A,
+  fireGlow:   0xE8963A,
+  wood:       0x5A3820,
+  text:       0xE8DCC8,
+  textMuted:  0x9A8A6A,
+  textDim:    0x6A5A40,
+  accent:     0xC4713A,
+  gold:       0xC4A050,
+  night:      0x0F0B04,
+  parchment:  0xE8D8B8,
+  sky:        0x7AB0D8,
+  skyPale:    0xB8D0E8,
+  dusk:       0xD08A5A,
+  purple:     0x4A3060,
 };
 
+// Font stacks
+const FONT_DISPLAY = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
+const FONT_BODY = "'Lora', Georgia, serif";
+
+// Shared UI helpers
+function createHUD(scene, text) {
+  const bar = scene.add.graphics();
+  bar.fillStyle(0x000000, 0.55);
+  bar.fillRect(0, 0, GAME_W, 56);
+  bar.setDepth(100);
+
+  const label = scene.add.text(GAME_W / 2, 28, text, {
+    fontSize: '16px', fontFamily: FONT_BODY,
+    color: '#e8dcc8', letterSpacing: 1
+  }).setOrigin(0.5).setDepth(101);
+
+  return { bar, label };
+}
+
+function createQuoteBar(scene) {
+  const bar = scene.add.graphics();
+  bar.fillStyle(0x000000, 0.45);
+  bar.fillRect(0, GAME_H - 48, GAME_W, 48);
+  bar.setDepth(100);
+
+  const label = scene.add.text(GAME_W / 2, GAME_H - 24, '', {
+    fontSize: '12px', fontFamily: FONT_BODY,
+    color: '#9a8a6a', fontStyle: 'italic', align: 'center'
+  }).setOrigin(0.5).setDepth(101);
+
+  return { bar, label };
+}
+
+function spawnAmbientParticles(scene, config = {}) {
+  const {
+    count = 20, color = 0xE8D5A8, minY = 0, maxY = GAME_H,
+    minX = 0, maxX = GAME_W, alpha = 0.15, speed = 3000
+  } = config;
+
+  for (let i = 0; i < count; i++) {
+    const p = scene.add.image(
+      Phaser.Math.Between(minX, maxX),
+      Phaser.Math.Between(minY, maxY),
+      'particle'
+    ).setScale(Phaser.Math.FloatBetween(0.5, 1.5))
+      .setTint(color).setAlpha(0).setDepth(50);
+
+    scene.tweens.add({
+      targets: p,
+      alpha: { from: 0, to: Phaser.Math.FloatBetween(alpha * 0.3, alpha) },
+      y: p.y - Phaser.Math.Between(40, 120),
+      x: p.x + Phaser.Math.Between(-20, 20),
+      duration: Phaser.Math.Between(speed * 0.6, speed * 1.4),
+      delay: Phaser.Math.Between(0, speed),
+      repeat: -1, yoyo: true,
+      ease: 'Sine.easeInOut'
+    });
+  }
+}
+
+function drawStars(graphics, count, maxY) {
+  for (let i = 0; i < count; i++) {
+    const a = 0.15 + Math.random() * 0.5;
+    graphics.fillStyle(0xFFFFFF, a);
+    const r = Math.random() < 0.15 ? 1.5 : 1;
+    graphics.fillCircle(
+      Phaser.Math.Between(10, GAME_W - 10),
+      Phaser.Math.Between(5, maxY),
+      r
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════
-// BOOT SCENE — load minimal assets
+// BOOT SCENE — generate textures, dismiss loader
 // ═══════════════════════════════════════════════════════
 class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
 
   create() {
-    // Generate all pixel-art style textures procedurally
     this.generateTextures();
+
+    // Dismiss HTML loader
+    const loader = document.getElementById('loader');
+    if (loader) {
+      loader.classList.add('hidden');
+      setTimeout(() => loader.remove(), 900);
+    }
+
     this.scene.start('Title');
   }
 
@@ -49,44 +136,41 @@ class BootScene extends Phaser.Scene {
 
     // ── Corn seed ──
     g.clear();
-    g.fillStyle(0xF5DEB3);
+    g.fillStyle(0xE8D5A8);
     g.fillEllipse(8, 8, 10, 14);
-    g.fillStyle(0xDAA520);
+    g.fillStyle(0xC4A050);
     g.fillEllipse(8, 8, 6, 10);
     g.generateTexture('corn-seed', 16, 16);
 
     // ── Bean seed ──
     g.clear();
-    g.fillStyle(0x8B4513);
+    g.fillStyle(0x7A3A18);
     g.fillEllipse(8, 8, 12, 8);
-    g.fillStyle(0x6B3410);
+    g.fillStyle(0x5A2A10);
     g.fillEllipse(8, 7, 8, 5);
     g.generateTexture('bean-seed', 16, 16);
 
     // ── Squash seed ──
     g.clear();
-    g.fillStyle(0xC9B458);
+    g.fillStyle(0xB8A44A);
     g.fillEllipse(8, 8, 8, 12);
-    g.fillStyle(0xB8A040);
+    g.fillStyle(0xA09038);
     g.fillEllipse(8, 8, 5, 8);
     g.generateTexture('squash-seed', 16, 16);
 
     // ── Corn stalk (grown) ──
     g.clear();
-    g.fillStyle(0x228B22);
+    g.fillStyle(0x2E7A2E);
     g.fillRect(14, 10, 4, 80);
-    // Leaves
-    g.fillStyle(0x2E8B2E);
+    g.fillStyle(0x3A8A3A);
     g.fillTriangle(14, 30, 0, 45, 14, 50);
     g.fillTriangle(18, 35, 32, 50, 18, 55);
     g.fillTriangle(14, 50, 0, 65, 14, 70);
-    // Corn ear
-    g.fillStyle(0xF5DEB3);
+    g.fillStyle(0xE8D5A8);
     g.fillEllipse(24, 42, 8, 14);
-    g.fillStyle(0xDAA520);
+    g.fillStyle(0xC4A050);
     g.fillEllipse(24, 42, 5, 10);
-    // Tassel
-    g.fillStyle(0xCDA04D);
+    g.fillStyle(0xB8943A);
     g.fillTriangle(12, 10, 16, 0, 20, 10);
     g.fillTriangle(10, 8, 16, 0, 14, 12);
     g.fillTriangle(18, 8, 16, 0, 22, 12);
@@ -94,56 +178,50 @@ class BootScene extends Phaser.Scene {
 
     // ── Bean plant (grown) ──
     g.clear();
-    g.fillStyle(0x228B22);
+    g.fillStyle(0x2E7A2E);
     g.fillRect(14, 20, 3, 50);
-    // Leaves
-    g.fillStyle(0x2E8B2E);
+    g.fillStyle(0x3A8A3A);
     g.fillEllipse(8, 30, 10, 6);
     g.fillEllipse(22, 38, 10, 6);
     g.fillEllipse(8, 48, 10, 6);
-    // Bean pods
-    g.fillStyle(0x8B4513);
+    g.fillStyle(0x7A3A18);
     g.fillEllipse(24, 28, 4, 10);
     g.fillEllipse(6, 42, 4, 10);
     g.generateTexture('bean-plant', 32, 70);
 
     // ── Squash plant (grown) ──
     g.clear();
-    // Vines
-    g.fillStyle(0x228B22);
+    g.fillStyle(0x2E7A2E);
     g.fillRect(6, 30, 20, 3);
     g.fillRect(14, 20, 3, 30);
-    // Leaves
-    g.fillStyle(0x2E8B2E);
+    g.fillStyle(0x3A8A3A);
     g.fillCircle(6, 22, 8);
     g.fillCircle(24, 26, 7);
     g.fillCircle(10, 40, 6);
-    // Squash
-    g.fillStyle(0xE8A317);
+    g.fillStyle(0xD4942A);
     g.fillEllipse(22, 40, 10, 8);
-    g.fillStyle(0xD4941A);
-    g.lineStyle(1, 0xC08010);
+    g.fillStyle(0xBA8020);
+    g.lineStyle(1, 0xA07018);
     g.strokeEllipse(22, 40, 10, 8);
     g.generateTexture('squash-plant', 32, 50);
 
     // ── Soil mound ──
     g.clear();
-    g.fillStyle(0x5C4033);
+    g.fillStyle(0x4A3628);
     g.fillEllipse(20, 16, 36, 16);
-    g.fillStyle(0x6B4D3A);
+    g.fillStyle(0x5A4232);
     g.fillEllipse(20, 14, 28, 10);
     g.generateTexture('soil-mound', 40, 24);
 
     // ── Watering can ──
     g.clear();
-    g.fillStyle(0x708090);
+    g.fillStyle(0x607080);
     g.fillRect(8, 10, 16, 18);
     g.fillRect(4, 8, 24, 4);
-    g.fillStyle(0x607080);
+    g.fillStyle(0x506070);
     g.fillRect(24, 4, 8, 10);
     g.fillRect(28, 2, 6, 4);
-    // Spout dots
-    g.fillStyle(0x4A90D9);
+    g.fillStyle(0x5A9AC8);
     g.fillCircle(30, 2, 1);
     g.fillCircle(32, 3, 1);
     g.fillCircle(34, 2, 1);
@@ -151,19 +229,18 @@ class BootScene extends Phaser.Scene {
 
     // ── Water drops ──
     g.clear();
-    g.fillStyle(0x4A90D9);
+    g.fillStyle(0x5A9AC8);
     g.fillTriangle(4, 0, 2, 6, 6, 6);
     g.fillCircle(4, 7, 3);
     g.generateTexture('water-drop', 8, 10);
 
     // ── Sun ──
     g.clear();
-    g.fillStyle(0xFDB813);
+    g.fillStyle(0xE8B84A);
     g.fillCircle(30, 30, 20);
-    g.fillStyle(0xFFD700);
+    g.fillStyle(0xF0D060);
     g.fillCircle(30, 30, 14);
-    // Rays
-    g.lineStyle(3, 0xFDB813);
+    g.lineStyle(3, 0xE8B84A);
     for (let i = 0; i < 8; i++) {
       const a = (Math.PI * 2 / 8) * i;
       g.lineBetween(
@@ -175,37 +252,35 @@ class BootScene extends Phaser.Scene {
 
     // ── Tobacco ──
     g.clear();
-    g.fillStyle(0x8B6914);
+    g.fillStyle(0x7A5A14);
     g.fillEllipse(8, 12, 12, 8);
-    g.fillStyle(0x7A5C10);
+    g.fillStyle(0x6A4A0E);
     g.fillEllipse(8, 10, 8, 5);
     g.generateTexture('tobacco', 16, 16);
 
     // ── Fire/smoke ──
     g.clear();
-    g.fillStyle(0xE8651A);
+    g.fillStyle(0xD85A1A);
     g.fillTriangle(10, 24, 6, 32, 14, 32);
     g.fillTriangle(14, 20, 10, 32, 18, 32);
     g.fillTriangle(18, 22, 14, 32, 22, 32);
-    g.fillStyle(0xFFA500);
+    g.fillStyle(0xE8963A);
     g.fillTriangle(12, 26, 9, 32, 15, 32);
     g.fillTriangle(16, 24, 13, 32, 19, 32);
     g.generateTexture('fire', 28, 32);
 
     // ── Sprout stages ──
-    // Small sprout
     g.clear();
-    g.fillStyle(0x228B22);
+    g.fillStyle(0x2E7A2E);
     g.fillRect(7, 6, 2, 10);
-    g.fillStyle(0x2E8B2E);
+    g.fillStyle(0x3A8A3A);
     g.fillTriangle(5, 6, 8, 0, 11, 6);
     g.generateTexture('sprout-small', 16, 16);
 
-    // Medium sprout
     g.clear();
-    g.fillStyle(0x228B22);
+    g.fillStyle(0x2E7A2E);
     g.fillRect(7, 10, 2, 16);
-    g.fillStyle(0x2E8B2E);
+    g.fillStyle(0x3A8A3A);
     g.fillTriangle(4, 14, 8, 6, 12, 14);
     g.fillTriangle(3, 10, 8, 2, 13, 10);
     g.generateTexture('sprout-medium', 16, 28);
@@ -216,57 +291,59 @@ class BootScene extends Phaser.Scene {
     g.fillCircle(2, 2, 2);
     g.generateTexture('particle', 4, 4);
 
+    // ── Soft glow particle ──
+    g.clear();
+    g.fillStyle(0xFFFFFF, 0.6);
+    g.fillCircle(8, 8, 8);
+    g.fillStyle(0xFFFFFF, 0.3);
+    g.fillCircle(8, 8, 5);
+    g.generateTexture('glow-particle', 16, 16);
+
     // ── Dried corn stalk (autumn) ──
     g.clear();
-    g.fillStyle(0x8B7355);
+    g.fillStyle(0x7A6348);
     g.fillRect(14, 10, 4, 80);
-    g.fillStyle(0x9B8565);
+    g.fillStyle(0x8A7358);
     g.fillTriangle(14, 30, 2, 48, 14, 50);
     g.fillTriangle(18, 35, 30, 52, 18, 55);
     g.fillTriangle(14, 50, 2, 68, 14, 70);
-    // Dried corn ear
-    g.fillStyle(0xF5DEB3);
+    g.fillStyle(0xE8D5A8);
     g.fillEllipse(24, 42, 8, 14);
-    g.fillStyle(0xDAA520);
+    g.fillStyle(0xC4A050);
     g.fillEllipse(24, 42, 5, 10);
-    // Husk
-    g.fillStyle(0xC9B887);
+    g.fillStyle(0xB0987A);
     g.fillTriangle(20, 30, 30, 42, 20, 54);
-    // Tassel
-    g.fillStyle(0x9B8050);
+    g.fillStyle(0x8A7040);
     g.fillTriangle(12, 10, 16, 0, 20, 10);
     g.fillTriangle(10, 8, 16, 0, 14, 12);
     g.generateTexture('dried-corn-stalk', 32, 90);
 
     // ── Corn cob (harvestable) ──
     g.clear();
-    g.fillStyle(0xF5DEB3);
+    g.fillStyle(0xE8D5A8);
     g.fillEllipse(12, 20, 10, 18);
-    g.fillStyle(0xDAA520);
-    // Kernel rows
+    g.fillStyle(0xC4A050);
     for (let row = 0; row < 6; row++) {
       for (let col = 0; col < 3; col++) {
         g.fillCircle(8 + col * 4, 10 + row * 5, 2);
       }
     }
-    // Husk leaves
-    g.fillStyle(0xC9B887);
+    g.fillStyle(0xB0987A);
     g.fillTriangle(4, 8, 0, 20, 4, 32);
     g.fillTriangle(20, 8, 24, 20, 20, 32);
     g.generateTexture('corn-cob', 24, 40);
 
     // ── Corn braid ──
     g.clear();
-    g.fillStyle(0xF5DEB3);
+    g.fillStyle(0xE8D5A8);
     g.fillEllipse(10, 8, 8, 12);
     g.fillEllipse(18, 10, 8, 12);
     g.fillEllipse(14, 16, 8, 12);
-    g.fillStyle(0xDAA520);
+    g.fillStyle(0xC4A050);
     g.fillEllipse(10, 8, 5, 8);
     g.fillEllipse(18, 10, 5, 8);
     g.fillEllipse(14, 16, 5, 8);
-    // Braid strings
-    g.lineStyle(2, 0xC9B887);
+    g.lineStyle(2, 0xB0987A);
     g.lineBetween(14, 0, 10, 8);
     g.lineBetween(14, 0, 18, 10);
     g.lineBetween(14, 0, 14, 16);
@@ -274,47 +351,42 @@ class BootScene extends Phaser.Scene {
 
     // ── Log ──
     g.clear();
-    g.fillStyle(0x6B4226);
+    g.fillStyle(0x5A3820);
     g.fillRoundedRect(2, 8, 36, 14, 4);
-    g.fillStyle(0x5A3620);
+    g.fillStyle(0x4A2C18);
     g.fillCircle(4, 15, 7);
     g.fillCircle(36, 15, 7);
-    // Tree rings
-    g.lineStyle(1, 0x4A2E18);
+    g.lineStyle(1, 0x3A2010);
     g.strokeCircle(36, 15, 3);
     g.strokeCircle(36, 15, 5);
-    g.fillStyle(0x7B5236);
+    g.fillStyle(0x6A4830);
     g.fillRoundedRect(4, 10, 32, 10, 3);
     g.generateTexture('log', 40, 28);
 
     // ── Kidney bean (large) ──
     g.clear();
-    g.fillStyle(0x8B2500);
+    g.fillStyle(0x7A2000);
     g.fillEllipse(12, 10, 16, 12);
-    g.fillStyle(0x6B1A00);
-    g.lineStyle(1, 0x5A1500);
+    g.fillStyle(0x5A1800);
+    g.lineStyle(1, 0x4A1200);
     g.lineBetween(6, 4, 18, 16);
-    g.fillStyle(0x9B3510);
+    g.fillStyle(0x8A3010);
     g.fillEllipse(10, 8, 6, 4);
     g.generateTexture('kidney-bean', 24, 20);
 
     // ── Basket ──
     g.clear();
-    g.fillStyle(0x8B6914);
-    // Basket body
+    g.fillStyle(0x7A5A14);
     g.fillRoundedRect(4, 10, 40, 28, 4);
-    g.fillStyle(0x7A5C10);
+    g.fillStyle(0x6A4A0E);
     g.fillRoundedRect(6, 12, 36, 24, 3);
-    // Weave pattern
-    g.lineStyle(1, 0x6B4D0A);
+    g.lineStyle(1, 0x5A3A08);
     for (let i = 0; i < 5; i++) {
       g.lineBetween(6, 14 + i * 5, 42, 14 + i * 5);
     }
-    // Rim
-    g.fillStyle(0x9B7924);
+    g.fillStyle(0x8A6A20);
     g.fillRoundedRect(2, 8, 44, 5, 2);
-    // Handle
-    g.lineStyle(3, 0x8B6914);
+    g.lineStyle(3, 0x7A5A14);
     g.beginPath();
     g.arc(24, 8, 14, Math.PI, 0, false);
     g.strokePath();
@@ -322,12 +394,11 @@ class BootScene extends Phaser.Scene {
 
     // ── Bean bowl ──
     g.clear();
-    g.fillStyle(0x8B6914);
+    g.fillStyle(0x7A5A14);
     g.fillEllipse(20, 18, 30, 14);
-    g.fillStyle(0x7A5C10);
+    g.fillStyle(0x6A4A0E);
     g.fillEllipse(20, 16, 26, 10);
-    // Beans inside
-    g.fillStyle(0x8B2500);
+    g.fillStyle(0x7A2000);
     g.fillEllipse(14, 14, 5, 3);
     g.fillEllipse(22, 13, 5, 3);
     g.fillEllipse(18, 16, 5, 3);
@@ -336,28 +407,26 @@ class BootScene extends Phaser.Scene {
 
     // ── Harvestable squash ──
     g.clear();
-    g.fillStyle(0xE8A317);
+    g.fillStyle(0xD4942A);
     g.fillEllipse(16, 14, 20, 14);
-    g.fillStyle(0xD4941A);
-    g.lineStyle(1, 0xC08010);
+    g.fillStyle(0xBA8020);
+    g.lineStyle(1, 0xA07018);
     g.strokeEllipse(16, 14, 20, 14);
-    // Ridges
-    g.lineStyle(1, 0xC08010);
+    g.lineStyle(1, 0xA07018);
     g.lineBetween(8, 4, 8, 24);
     g.lineBetween(16, 2, 16, 26);
     g.lineBetween(24, 4, 24, 24);
-    // Stem
-    g.fillStyle(0x5A9E3E);
+    g.fillStyle(0x4A8A30);
     g.fillRect(14, 0, 4, 4);
     g.generateTexture('squash-harvest', 32, 28);
 
     // ── Ash pile ──
     g.clear();
-    g.fillStyle(0x808080);
+    g.fillStyle(0x707070);
     g.fillEllipse(16, 14, 24, 12);
-    g.fillStyle(0x909090);
+    g.fillStyle(0x808080);
     g.fillEllipse(16, 12, 18, 8);
-    g.fillStyle(0xA0A0A0);
+    g.fillStyle(0x909090);
     g.fillEllipse(14, 11, 10, 5);
     g.generateTexture('ash-pile', 32, 20);
 
@@ -366,133 +435,214 @@ class BootScene extends Phaser.Scene {
 }
 
 // ═══════════════════════════════════════════════════════
-// TITLE SCENE
+// TITLE SCENE — Cinematic opening
 // ═══════════════════════════════════════════════════════
 class TitleScene extends Phaser.Scene {
   constructor() { super('Title'); }
 
   create() {
-    // Background
-    this.cameras.main.setBackgroundColor(C.night);
+    this.cameras.main.setBackgroundColor(C.bg);
+    this.cameras.main.fadeIn(1200, 15, 11, 4);
 
-    // Soft gradient bg
+    // Deep gradient background
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0x1A1207, 0x1A1207, 0x3E2723, 0x3E2723);
+    bg.fillGradientStyle(0x0F0B04, 0x0F0B04, 0x1C1308, 0x1C1308);
     bg.fillRect(0, 0, GAME_W, GAME_H);
 
-    // Fire glow
-    const fireGlow = this.add.graphics();
-    fireGlow.fillStyle(0xE8651A, 0.08);
-    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.65, 200);
-    fireGlow.fillStyle(0xFFA500, 0.05);
-    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.65, 140);
+    // Subtle noise texture — scattered dim dots
+    for (let i = 0; i < 60; i++) {
+      bg.fillStyle(0xFFFFFF, Math.random() * 0.02);
+      bg.fillCircle(
+        Phaser.Math.Between(0, GAME_W),
+        Phaser.Math.Between(0, GAME_H),
+        Phaser.Math.Between(1, 3)
+      );
+    }
 
-    // Fire
-    const fire = this.add.image(GAME_W / 2, GAME_H * 0.62, 'fire').setScale(3);
-    this.tweens.add({
-      targets: fire, scaleX: 3.2, scaleY: 2.8, y: GAME_H * 0.61,
-      duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    // Fire glow — layered radial
+    const fireGlow = this.add.graphics();
+    fireGlow.fillStyle(0xD85A1A, 0.04);
+    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.68, 240);
+    fireGlow.fillStyle(0xE8963A, 0.05);
+    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.68, 160);
+    fireGlow.fillStyle(0xF0C060, 0.03);
+    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.68, 90);
+
+    // Ember particles
+    spawnAmbientParticles(this, {
+      count: 12, color: 0xE89040, minY: GAME_H * 0.4,
+      maxY: GAME_H * 0.7, minX: GAME_W * 0.3, maxX: GAME_W * 0.7,
+      alpha: 0.25, speed: 2500
     });
 
-    // Title
-    this.add.text(GAME_W / 2, GAME_H * 0.2, 'CORN SOUP', {
-      fontSize: '64px', fontFamily: 'Georgia, serif',
-      color: '#F5DEB3', fontStyle: 'bold'
-    }).setOrigin(0.5);
+    // Fire
+    const fire = this.add.image(GAME_W / 2, GAME_H * 0.65, 'fire').setScale(3.5);
+    this.tweens.add({
+      targets: fire, scaleX: 3.7, scaleY: 3.2, y: GAME_H * 0.64,
+      duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    });
 
-    this.add.text(GAME_W / 2, GAME_H * 0.32, 'A Story of Community', {
-      fontSize: '22px', fontFamily: 'Georgia, serif',
-      color: '#C0A060', fontStyle: 'italic'
-    }).setOrigin(0.5);
+    // Thin decorative line
+    const line = this.add.graphics();
+    line.lineStyle(1, 0xC4A050, 0.3);
+    line.lineBetween(GAME_W * 0.25, GAME_H * 0.38, GAME_W * 0.75, GAME_H * 0.38);
 
-    // Quote
-    this.add.text(GAME_W / 2, GAME_H * 0.46, '"It\'s not just a bowl of soup."', {
-      fontSize: '16px', fontFamily: 'Georgia, serif',
-      color: '#A08060', fontStyle: 'italic'
-    }).setOrigin(0.5);
+    // Title — staggered reveal
+    const titleText = this.add.text(GAME_W / 2, GAME_H * 0.18, 'CORN SOUP', {
+      fontSize: '56px', fontFamily: FONT_DISPLAY,
+      color: '#e8d5a8', fontStyle: 'bold',
+      letterSpacing: 8
+    }).setOrigin(0.5).setAlpha(0);
 
-    // Start prompt
-    const startText = this.add.text(GAME_W / 2, GAME_H * 0.82, 'Click to begin', {
-      fontSize: '20px', fontFamily: 'Georgia, serif', color: '#F5DEB3'
-    }).setOrigin(0.5);
+    const subtitleText = this.add.text(GAME_W / 2, GAME_H * 0.30, 'A Story of Community', {
+      fontSize: '18px', fontFamily: FONT_BODY,
+      color: '#9a8a6a', fontStyle: 'italic',
+      letterSpacing: 2
+    }).setOrigin(0.5).setAlpha(0);
+
+    const quoteText = this.add.text(GAME_W / 2, GAME_H * 0.46, '"It\'s not just a bowl of soup."', {
+      fontSize: '15px', fontFamily: FONT_BODY,
+      color: '#6a5a40', fontStyle: 'italic'
+    }).setOrigin(0.5).setAlpha(0);
+
+    // Staggered fade-in
+    this.tweens.add({ targets: titleText, alpha: 1, y: GAME_H * 0.20, duration: 1200, delay: 400, ease: 'Quad.easeOut' });
+    this.tweens.add({ targets: subtitleText, alpha: 1, duration: 1000, delay: 1200, ease: 'Quad.easeOut' });
+    this.tweens.add({ targets: quoteText, alpha: 1, duration: 800, delay: 2000, ease: 'Quad.easeOut' });
+
+    // Start prompt — appears last
+    const startText = this.add.text(GAME_W / 2, GAME_H * 0.84, 'CLICK TO BEGIN', {
+      fontSize: '12px', fontFamily: FONT_BODY,
+      color: '#6a5a40', letterSpacing: 4
+    }).setOrigin(0.5).setAlpha(0);
 
     this.tweens.add({
-      targets: startText, alpha: 0.3,
-      duration: 1200, yoyo: true, repeat: -1
+      targets: startText, alpha: 0.7, duration: 800, delay: 3000,
+      onComplete: () => {
+        this.tweens.add({
+          targets: startText, alpha: 0.2,
+          duration: 1500, yoyo: true, repeat: -1
+        });
+      }
     });
 
     // Attribution
-    this.add.text(GAME_W / 2, GAME_H * 0.93, 'Inspired by "Stories From The Land"', {
-      fontSize: '12px', fontFamily: 'Georgia, serif', color: '#706040'
-    }).setOrigin(0.5);
+    this.add.text(GAME_W / 2, GAME_H * 0.94, 'Inspired by "Stories From The Land"', {
+      fontSize: '10px', fontFamily: FONT_BODY, color: '#3a3020',
+      letterSpacing: 1
+    }).setOrigin(0.5).setAlpha(0.6);
 
-    this.input.once('pointerdown', () => {
-      this.cameras.main.fadeOut(800, 26, 18, 7);
-      this.time.delayedCall(800, () => this.scene.start('Narrative', {
-        lines: [
-          'Corn Soup.',
-          'When these two words are mentioned to anyone from the Haudenosaunee Communities, they will smile, they will get excited.',
-          'Because what corn soup represents is so much more than food.',
-          'Recipes and techniques are passed down from generation to generation.',
-          'To make it the right way can take eight to twelve hours. Some say it can take days.',
-          'Today, you will learn to make this dish — from seed to bowl.',
-          'You will plant the Three Sisters. You will tend the earth.',
-          'You will prepare the corn in the old way.',
-          'And you will share it with your community.',
-          'Let us begin with a good mind.',
-        ],
-        nextScene: 'Level1_Intro'
-      }));
+    // Click handler — delayed to prevent accidental clicks
+    this.time.delayedCall(2000, () => {
+      this.input.once('pointerdown', () => {
+        this.cameras.main.fadeOut(1000, 15, 11, 4);
+        this.time.delayedCall(1000, () => this.scene.start('Narrative', {
+          lines: [
+            'Corn Soup.',
+            'When these two words are mentioned to anyone from the Haudenosaunee Communities, they will smile, they will get excited.',
+            'Because what corn soup represents is so much more than food.',
+            'Recipes and techniques are passed down from generation to generation.',
+            'To make it the right way can take eight to twelve hours. Some say it can take days.',
+            'Today, you will learn to make this dish \u2014 from seed to bowl.',
+            'You will plant the Three Sisters. You will tend the earth.',
+            'You will prepare the corn in the old way.',
+            'And you will share it with your community.',
+            'Let us begin with a good mind.',
+          ],
+          nextScene: 'Level1_Intro'
+        }));
+      });
     });
   }
 }
 
 // ═══════════════════════════════════════════════════════
-// NARRATIVE SCENE — Reusable text display between levels
+// NARRATIVE SCENE — Cinematic text with letterbox
 // ═══════════════════════════════════════════════════════
 class NarrativeScene extends Phaser.Scene {
   constructor() { super('Narrative'); }
 
   create(data) {
-    this.cameras.main.setBackgroundColor(C.night);
-    this.cameras.main.fadeIn(600, 26, 18, 7);
+    this.cameras.main.setBackgroundColor(C.bg);
+    this.cameras.main.fadeIn(800, 15, 11, 4);
 
     const lines = data.lines || [];
     const nextScene = data.nextScene || 'Title';
     const nextData = data.nextData || {};
     let lineIndex = 0;
 
-    // Parchment-toned bg
+    // Background with subtle warmth
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0x1A1207, 0x1A1207, 0x2A1F12, 0x2A1F12);
+    bg.fillGradientStyle(0x0F0B04, 0x0F0B04, 0x18120A, 0x18120A);
     bg.fillRect(0, 0, GAME_W, GAME_H);
 
-    // Decorative line
-    bg.lineStyle(1, 0x705830);
-    bg.lineBetween(100, GAME_H * 0.25, GAME_W - 100, GAME_H * 0.25);
-    bg.lineBetween(100, GAME_H * 0.75, GAME_W - 100, GAME_H * 0.75);
+    // Letterbox bars
+    const letterboxH = 60;
+    const topBar = this.add.graphics();
+    topBar.fillStyle(0x000000, 0.8);
+    topBar.fillRect(0, 0, GAME_W, letterboxH);
+    topBar.setDepth(90);
 
+    const botBar = this.add.graphics();
+    botBar.fillStyle(0x000000, 0.8);
+    botBar.fillRect(0, GAME_H - letterboxH, GAME_W, letterboxH);
+    botBar.setDepth(90);
+
+    // Decorative lines
+    const deco = this.add.graphics();
+    deco.lineStyle(1, 0xC4A050, 0.15);
+    deco.lineBetween(120, letterboxH + 20, GAME_W - 120, letterboxH + 20);
+    deco.lineBetween(120, GAME_H - letterboxH - 20, GAME_W - 120, GAME_H - letterboxH - 20);
+
+    // Central text
     const textObj = this.add.text(GAME_W / 2, GAME_H / 2, '', {
-      fontSize: '20px', fontFamily: 'Georgia, serif',
-      color: '#F5E6CA', align: 'center',
-      wordWrap: { width: 560 }, lineSpacing: 8
+      fontSize: '19px', fontFamily: FONT_BODY,
+      color: '#e8d8b8', align: 'center',
+      wordWrap: { width: 520 }, lineSpacing: 10
     }).setOrigin(0.5).setAlpha(0);
 
-    const promptText = this.add.text(GAME_W / 2, GAME_H * 0.88, '', {
-      fontSize: '14px', fontFamily: 'Georgia, serif', color: '#706040'
-    }).setOrigin(0.5);
+    // Prompt in bottom letterbox
+    const promptText = this.add.text(GAME_W / 2, GAME_H - letterboxH / 2, '', {
+      fontSize: '11px', fontFamily: FONT_BODY,
+      color: '#5a4a30', letterSpacing: 2
+    }).setOrigin(0.5).setDepth(91);
+
+    // Progress dots
+    const dotsY = letterboxH / 2;
+    const dotSpacing = 8;
+    const dotsStartX = GAME_W / 2 - ((lines.length - 1) * dotSpacing) / 2;
+    const dots = [];
+    for (let i = 0; i < lines.length; i++) {
+      const dot = this.add.graphics();
+      dot.fillStyle(0xC4A050, 0.15);
+      dot.fillCircle(dotsStartX + i * dotSpacing, dotsY, 2);
+      dot.setDepth(91);
+      dots.push(dot);
+    }
+
+    const highlightDot = (idx) => {
+      dots.forEach((d, i) => {
+        d.clear();
+        d.fillStyle(0xC4A050, i <= idx ? 0.6 : 0.15);
+        d.fillCircle(dotsStartX + i * dotSpacing, dotsY, i === idx ? 2.5 : 2);
+      });
+    };
 
     const showLine = () => {
       if (lineIndex >= lines.length) {
-        this.cameras.main.fadeOut(600, 26, 18, 7);
-        this.time.delayedCall(600, () => this.scene.start(nextScene, nextData));
+        this.cameras.main.fadeOut(800, 15, 11, 4);
+        this.time.delayedCall(800, () => this.scene.start(nextScene, nextData));
         return;
       }
 
+      highlightDot(lineIndex);
       textObj.setText(lines[lineIndex]);
       textObj.setAlpha(0);
+      textObj.y = GAME_H / 2 + 8;
+
       this.tweens.add({
-        targets: textObj, alpha: 1, duration: 600
+        targets: textObj, alpha: 1, y: GAME_H / 2,
+        duration: 600, ease: 'Quad.easeOut'
       });
 
       promptText.setText(lineIndex < lines.length - 1 ? 'click to continue' : 'click to begin');
@@ -517,7 +667,7 @@ class Level1IntroScene extends Phaser.Scene {
         'Before the soup, there is the seed.',
         'The Haudenosaunee people plant corn, beans, and squash together.\nThey call them the Three Sisters.',
         'The corn provides a stalk for the beans to climb.\nThe beans fix nitrogen in the soil.\nThe squash shades the ground, keeping moisture in.',
-        'Together, they sustain each other — as a community should.',
+        'Together, they sustain each other \u2014 as a community should.',
         'In 1779, the Sullivan Campaign burned our corn fields\nto destroy us as a people.',
         '"Had it not been for the will of our people\nto take one kernel of corn\nand put it back in the earth..."',
         '"...then it\'s possible that would have been the end\nof all the Haudenosaunee people forever."',
@@ -540,23 +690,29 @@ class Level1Scene extends Phaser.Scene {
 
     // ── Sky ──
     const sky = this.add.graphics();
-    sky.fillGradientStyle(0x87CEEB, 0x87CEEB, 0xB0D4E8, 0xB0D4E8);
+    sky.fillGradientStyle(0x7AB0D8, 0x7AB0D8, 0xB8D0E8, 0xB8D0E8);
     sky.fillRect(0, 0, GAME_W, GAME_H * 0.55);
 
     // Sun
-    this.sun = this.add.image(680, 80, 'sun').setScale(1.2).setAlpha(0.9);
+    this.sun = this.add.image(680, 80, 'sun').setScale(1.2).setAlpha(0.85);
+
+    // Ambient dust in the air
+    spawnAmbientParticles(this, {
+      count: 8, color: 0xFFFFFF, minY: 40, maxY: GAME_H * 0.5,
+      alpha: 0.08, speed: 5000
+    });
 
     // ── Ground ──
     const ground = this.add.graphics();
-    ground.fillGradientStyle(0x6B8E23, 0x6B8E23, 0x5C4033, 0x5C4033);
+    ground.fillGradientStyle(0x5A7A30, 0x5A7A30, 0x4A3628, 0x4A3628);
     ground.fillRect(0, GAME_H * 0.55, GAME_W, GAME_H * 0.45);
-    ground.fillStyle(0x5C4033);
+    ground.fillStyle(0x4A3628);
     ground.fillRect(0, GAME_H * 0.62, GAME_W, GAME_H * 0.38);
 
-    // ── Planting mounds — 3 spots for Three Sisters ──
+    // ── Planting mounds ──
     this.mounds = [];
     this.plants = [];
-    this.plantStage = [0, 0, 0]; // 0=empty, 1=seeded, 2=sprouted, 3=growing, 4=grown
+    this.plantStage = [0, 0, 0];
     this.plantType = ['corn', 'bean', 'squash'];
 
     const moundPositions = [
@@ -569,25 +725,24 @@ class Level1Scene extends Phaser.Scene {
       const mound = this.add.image(pos.x, pos.y, 'soil-mound').setScale(2.5);
       this.mounds.push(mound);
 
-      // Label
       this.add.text(pos.x, pos.y + 28, pos.label, {
-        fontSize: '13px', fontFamily: 'Georgia, serif',
-        color: '#A08860'
+        fontSize: '11px', fontFamily: FONT_BODY,
+        color: '#7a6a4a', letterSpacing: 1
       }).setOrigin(0.5);
     });
 
-    // ── Seed tray at bottom ──
+    // ── Seed tray ──
     const trayBg = this.add.graphics();
-    trayBg.fillStyle(0x3E2723, 0.85);
-    trayBg.fillRoundedRect(GAME_W / 2 - 180, GAME_H - 80, 360, 70, 12);
-    trayBg.lineStyle(1, 0x705830);
-    trayBg.strokeRoundedRect(GAME_W / 2 - 180, GAME_H - 80, 360, 70, 12);
+    trayBg.fillStyle(0x000000, 0.6);
+    trayBg.fillRoundedRect(GAME_W / 2 - 180, GAME_H - 76, 360, 66, 8);
+    trayBg.lineStyle(1, 0xC4A050, 0.2);
+    trayBg.strokeRoundedRect(GAME_W / 2 - 180, GAME_H - 76, 360, 66, 8);
 
-    this.add.text(GAME_W / 2, GAME_H - 75, 'Seeds', {
-      fontSize: '12px', fontFamily: 'Georgia, serif', color: '#A08860'
+    this.add.text(GAME_W / 2, GAME_H - 72, 'SEEDS', {
+      fontSize: '9px', fontFamily: FONT_BODY, color: '#6a5a40',
+      letterSpacing: 3
     }).setOrigin(0.5);
 
-    // Draggable seeds
     const seedTypes = [
       { key: 'corn-seed', x: GAME_W / 2 - 100, type: 0 },
       { key: 'bean-seed', x: GAME_W / 2, type: 1 },
@@ -609,7 +764,6 @@ class Level1Scene extends Phaser.Scene {
       });
 
       img.on('dragend', () => {
-        // Check if dropped on matching mound
         let planted = false;
         this.mounds.forEach((mound, i) => {
           if (i === img.seedType && this.plantStage[i] === 0) {
@@ -628,15 +782,13 @@ class Level1Scene extends Phaser.Scene {
       });
     });
 
-    // ── Instructions ──
-    this.instructionText = this.add.text(GAME_W / 2, 30, 'Drag each seed to its mound', {
-      fontSize: '18px', fontFamily: 'Georgia, serif',
-      color: '#FFF8E7', stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
+    // ── HUD ──
+    const hud = createHUD(this, 'Drag each seed to its mound');
+    this.instructionLabel = hud.label;
 
     // ── Watering can (appears after planting) ──
     this.wateringCan = this.add.image(700, GAME_H - 40, 'watering-can')
-      .setScale(2).setInteractive({ draggable: true }).setVisible(false).setAlpha(0.9);
+      .setScale(2).setInteractive({ draggable: true }).setVisible(false).setAlpha(0);
 
     this.wateringCan.on('drag', (pointer, dragX, dragY) => {
       this.wateringCan.x = dragX;
@@ -644,7 +796,6 @@ class Level1Scene extends Phaser.Scene {
     });
 
     this.wateringCan.on('dragend', () => {
-      // Check if over a planted mound
       this.mounds.forEach((mound, i) => {
         if (this.plantStage[i] >= 1 && this.plantStage[i] < 4) {
           const dist = Phaser.Math.Distance.Between(
@@ -659,7 +810,6 @@ class Level1Scene extends Phaser.Scene {
       this.wateringCan.y = GAME_H - 40;
     });
 
-    // Track progress
     this.allPlanted = false;
     this.allGrown = false;
     this.waterCount = [0, 0, 0];
@@ -668,15 +818,13 @@ class Level1Scene extends Phaser.Scene {
   plantSeed(index) {
     this.plantStage[index] = 1;
 
-    // Seed in ground
     const mound = this.mounds[index];
     const seedKey = ['corn-seed', 'bean-seed', 'squash-seed'][index];
     const seedInGround = this.add.image(mound.x, mound.y - 5, seedKey).setScale(1.5).setAlpha(0.7);
 
-    // Little particles
     for (let i = 0; i < 6; i++) {
       const p = this.add.image(mound.x, mound.y, 'particle')
-        .setScale(1).setTint(0x5C4033);
+        .setScale(1).setTint(0x4A3628);
       this.tweens.add({
         targets: p,
         x: mound.x + Phaser.Math.Between(-30, 30),
@@ -686,21 +834,19 @@ class Level1Scene extends Phaser.Scene {
       });
     }
 
-    // Fade seed into ground
     this.tweens.add({
       targets: seedInGround, alpha: 0, y: mound.y + 5,
       duration: 1000, delay: 300,
       onComplete: () => seedInGround.destroy()
     });
 
-    // Check if all planted
     if (this.plantStage.every(s => s >= 1)) {
       this.allPlanted = true;
       this.time.delayedCall(1200, () => {
-        this.instructionText.setText('Water each mound to help them grow');
+        this.instructionLabel.setText('Water each mound to help them grow');
         this.wateringCan.setVisible(true);
         this.tweens.add({
-          targets: this.wateringCan, alpha: 1, duration: 400
+          targets: this.wateringCan, alpha: 0.9, duration: 400
         });
       });
     }
@@ -710,13 +856,12 @@ class Level1Scene extends Phaser.Scene {
     const mound = this.mounds[index];
     this.waterCount[index]++;
 
-    // Water drop particles
     for (let i = 0; i < 5; i++) {
       const drop = this.add.image(
         mound.x + Phaser.Math.Between(-15, 15),
         mound.y - 30,
         'water-drop'
-      ).setScale(1.5).setTint(0x4A90D9);
+      ).setScale(1.5).setTint(0x5A9AC8);
 
       this.tweens.add({
         targets: drop,
@@ -726,7 +871,6 @@ class Level1Scene extends Phaser.Scene {
       });
     }
 
-    // Grow stages
     const stage = this.waterCount[index];
     if (stage === 1 && this.plantStage[index] === 1) {
       this.plantStage[index] = 2;
@@ -749,7 +893,6 @@ class Level1Scene extends Phaser.Scene {
       this.plants[index] = plant;
       this.tweens.add({ targets: plant, alpha: 1, duration: 1000 });
 
-      // Check if all grown
       if (this.plantStage.every(s => s >= 4)) {
         this.allGrown = true;
         this.time.delayedCall(1500, () => this.levelComplete());
@@ -759,11 +902,10 @@ class Level1Scene extends Phaser.Scene {
 
   levelComplete() {
     this.wateringCan.setVisible(false);
-    this.instructionText.setText('');
+    this.instructionLabel.setText('');
 
-    // Celebration particles
     for (let i = 0; i < 20; i++) {
-      const colors = [0xF5DEB3, 0x228B22, 0xE8A317, 0xDAA520];
+      const colors = [0xE8D5A8, 0x2E7A2E, 0xD4942A, 0xC4A050];
       const p = this.add.image(
         Phaser.Math.Between(100, 700),
         Phaser.Math.Between(300, 500),
@@ -787,7 +929,7 @@ class Level1Scene extends Phaser.Scene {
             'The corn stands tall. The beans climb. The squash shelters the earth.',
             'Just as our ancestors intended.',
             '"There\'s something about the health of a corn field\nthat reflects the health of a community."',
-            '— Karl Dockstader, Oneida Bear Clan',
+            '\u2014 Karl Dockstader, Oneida Bear Clan',
             'The harvest is near...',
           ],
           nextScene: 'Level2_Intro'
@@ -820,7 +962,6 @@ class Level2IntroScene extends Phaser.Scene {
 
 // ═══════════════════════════════════════════════════════
 // LEVEL 2 — HARVEST & GATHER
-// Three tasks: harvest corn cobs, collect logs, gather beans
 // ═══════════════════════════════════════════════════════
 class Level2Scene extends Phaser.Scene {
   constructor() { super('Level2'); }
@@ -830,71 +971,73 @@ class Level2Scene extends Phaser.Scene {
 
     // ── Autumn sky ──
     const sky = this.add.graphics();
-    sky.fillGradientStyle(0xD4956B, 0xC48560, 0xE8B87A, 0xE8C89A);
+    sky.fillGradientStyle(0xC08050, 0xB07548, 0xD8A868, 0xD8B888);
     sky.fillRect(0, 0, GAME_W, GAME_H * 0.5);
 
-    // Autumn sun lower in sky
-    this.add.image(120, 100, 'sun').setScale(1).setAlpha(0.7).setTint(0xFFA060);
+    this.add.image(120, 100, 'sun').setScale(1).setAlpha(0.6).setTint(0xE8A050);
+
+    // Autumn dust
+    spawnAmbientParticles(this, {
+      count: 6, color: 0xD8B888, minY: 20, maxY: GAME_H * 0.45,
+      alpha: 0.1, speed: 4000
+    });
 
     // ── Ground ──
     const ground = this.add.graphics();
-    ground.fillGradientStyle(0x8B7E45, 0x8B7E45, 0x5C4033, 0x5C4033);
+    ground.fillGradientStyle(0x7A6A38, 0x7A6A38, 0x4A3628, 0x4A3628);
     ground.fillRect(0, GAME_H * 0.5, GAME_W, GAME_H * 0.5);
-    ground.fillStyle(0x5C4033);
+    ground.fillStyle(0x4A3628);
     ground.fillRect(0, GAME_H * 0.58, GAME_W, GAME_H * 0.42);
 
-    // ── Collection areas at bottom ──
+    // ── Collection tray ──
     const trayBg = this.add.graphics();
-    trayBg.fillStyle(0x3E2723, 0.85);
-    trayBg.fillRoundedRect(20, GAME_H - 90, GAME_W - 40, 80, 12);
-    trayBg.lineStyle(1, 0x705830);
-    trayBg.strokeRoundedRect(20, GAME_H - 90, GAME_W - 40, 80, 12);
+    trayBg.fillStyle(0x000000, 0.6);
+    trayBg.fillRoundedRect(20, GAME_H - 86, GAME_W - 40, 76, 8);
+    trayBg.lineStyle(1, 0xC4A050, 0.15);
+    trayBg.strokeRoundedRect(20, GAME_H - 86, GAME_W - 40, 76, 8);
 
-    // Four collection targets
     this.collected = { corn: 0, squash: 0, logs: 0, beans: 0 };
     this.targets = { corn: 4, squash: 3, logs: 3, beans: 3 };
 
     // Basket for corn
-    this.add.image(110, GAME_H - 55, 'basket').setScale(1.6);
-    this.cornCountText = this.add.text(110, GAME_H - 30, '0 / 4', {
-      fontSize: '12px', fontFamily: 'Georgia, serif', color: '#F5DEB3'
+    this.add.image(110, GAME_H - 52, 'basket').setScale(1.6);
+    this.cornCountText = this.add.text(110, GAME_H - 28, '0 / 4', {
+      fontSize: '11px', fontFamily: FONT_BODY, color: '#e8dcc8'
     }).setOrigin(0.5);
-    this.add.text(110, GAME_H - 18, 'Corn', {
-      fontSize: '10px', fontFamily: 'Georgia, serif', color: '#A08860'
+    this.add.text(110, GAME_H - 16, 'Corn', {
+      fontSize: '9px', fontFamily: FONT_BODY, color: '#7a6a4a', letterSpacing: 1
     }).setOrigin(0.5);
 
     // Squash area
-    this.add.image(290, GAME_H - 55, 'squash-harvest').setScale(1.6);
-    this.squashCountText = this.add.text(290, GAME_H - 30, '0 / 3', {
-      fontSize: '12px', fontFamily: 'Georgia, serif', color: '#F5DEB3'
+    this.add.image(290, GAME_H - 52, 'squash-harvest').setScale(1.6);
+    this.squashCountText = this.add.text(290, GAME_H - 28, '0 / 3', {
+      fontSize: '11px', fontFamily: FONT_BODY, color: '#e8dcc8'
     }).setOrigin(0.5);
-    this.add.text(290, GAME_H - 18, 'Squash', {
-      fontSize: '10px', fontFamily: 'Georgia, serif', color: '#A08860'
+    this.add.text(290, GAME_H - 16, 'Squash', {
+      fontSize: '9px', fontFamily: FONT_BODY, color: '#7a6a4a', letterSpacing: 1
     }).setOrigin(0.5);
 
     // Log pile area
-    this.add.image(470, GAME_H - 58, 'log').setScale(1.6);
-    this.logCountText = this.add.text(470, GAME_H - 30, '0 / 3', {
-      fontSize: '12px', fontFamily: 'Georgia, serif', color: '#F5DEB3'
+    this.add.image(470, GAME_H - 55, 'log').setScale(1.6);
+    this.logCountText = this.add.text(470, GAME_H - 28, '0 / 3', {
+      fontSize: '11px', fontFamily: FONT_BODY, color: '#e8dcc8'
     }).setOrigin(0.5);
-    this.add.text(470, GAME_H - 18, 'Hardwood', {
-      fontSize: '10px', fontFamily: 'Georgia, serif', color: '#A08860'
+    this.add.text(470, GAME_H - 16, 'Hardwood', {
+      fontSize: '9px', fontFamily: FONT_BODY, color: '#7a6a4a', letterSpacing: 1
     }).setOrigin(0.5);
 
     // Bean bowl
-    this.add.image(650, GAME_H - 55, 'bean-bowl').setScale(1.6);
-    this.beanCountText = this.add.text(650, GAME_H - 30, '0 / 3', {
-      fontSize: '12px', fontFamily: 'Georgia, serif', color: '#F5DEB3'
+    this.add.image(650, GAME_H - 52, 'bean-bowl').setScale(1.6);
+    this.beanCountText = this.add.text(650, GAME_H - 28, '0 / 3', {
+      fontSize: '11px', fontFamily: FONT_BODY, color: '#e8dcc8'
     }).setOrigin(0.5);
-    this.add.text(650, GAME_H - 18, 'Beans', {
-      fontSize: '10px', fontFamily: 'Georgia, serif', color: '#A08860'
+    this.add.text(650, GAME_H - 16, 'Beans', {
+      fontSize: '9px', fontFamily: FONT_BODY, color: '#7a6a4a', letterSpacing: 1
     }).setOrigin(0.5);
 
-    // ── Instructions ──
-    this.instructionText = this.add.text(GAME_W / 2, 25, 'Tap the corn cobs to harvest them', {
-      fontSize: '18px', fontFamily: 'Georgia, serif',
-      color: '#FFF8E7', stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
+    // ── HUD ──
+    const hud = createHUD(this, 'Tap the corn cobs to harvest them');
+    this.instructionLabel = hud.label;
 
     // ── Phase 1: Corn harvest ──
     this.phase = 1;
@@ -905,7 +1048,6 @@ class Level2Scene extends Phaser.Scene {
     this.cornStalks = [];
     this.cornCobs = [];
 
-    // Row of dried corn stalks
     const stalkPositions = [
       { x: 120, y: 340 }, { x: 240, y: 350 }, { x: 380, y: 335 },
       { x: 500, y: 345 }, { x: 620, y: 340 }, { x: 700, y: 350 },
@@ -916,14 +1058,12 @@ class Level2Scene extends Phaser.Scene {
         .setScale(2.2).setOrigin(0.5, 0.8);
       this.cornStalks.push(stalk);
 
-      // Harvestable corn cobs on first 4 stalks
       if (i < 4) {
         const cobX = pos.x + 14;
         const cobY = pos.y - 60;
         const cob = this.add.image(cobX, cobY, 'corn-cob')
           .setScale(1.8).setInteractive({ cursor: 'pointer' });
 
-        // Gentle sway
         this.tweens.add({
           targets: cob, angle: 3, duration: 1500 + i * 200,
           yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
@@ -939,25 +1079,21 @@ class Level2Scene extends Phaser.Scene {
     if (this.phase !== 1) return;
     cob.disableInteractive();
 
-    // Snap off animation
     this.tweens.add({
       targets: cob,
       y: cob.y + 10, angle: 15, alpha: 0.5,
       duration: 200, ease: 'Quad.easeIn',
       onComplete: () => {
-        // Fly to basket
         this.tweens.add({
           targets: cob,
-          x: 110, y: GAME_H - 55,
+          x: 110, y: GAME_H - 52,
           scaleX: 0.8, scaleY: 0.8, angle: 0, alpha: 1,
           duration: 600, ease: 'Quad.easeInOut',
           onComplete: () => {
             cob.destroy();
             this.collected.corn++;
             this.cornCountText.setText(`${this.collected.corn} / ${this.targets.corn}`);
-
-            // Collect particle burst
-            this.collectBurst(110, GAME_H - 55, 0xF5DEB3);
+            this.collectBurst(110, GAME_H - 52, 0xE8D5A8);
 
             if (this.collected.corn >= this.targets.corn) {
               this.time.delayedCall(800, () => this.startSquashPhase());
@@ -967,10 +1103,9 @@ class Level2Scene extends Phaser.Scene {
       }
     });
 
-    // Kernel particles from stalk
     for (let i = 0; i < 4; i++) {
       const p = this.add.image(cob.x, cob.y, 'particle')
-        .setScale(1.5).setTint(0xDAA520);
+        .setScale(1.5).setTint(0xC4A050);
       this.tweens.add({
         targets: p,
         x: cob.x + Phaser.Math.Between(-20, 20),
@@ -983,14 +1118,13 @@ class Level2Scene extends Phaser.Scene {
 
   startSquashPhase() {
     this.phase = 2;
-    this.instructionText.setText('Tap the squash to harvest them');
+    this.instructionLabel.setText('Tap the squash to harvest them');
 
     const squashPositions = [
       { x: 180, y: 420 }, { x: 400, y: 430 }, { x: 580, y: 415 },
     ];
 
     squashPositions.forEach((pos, i) => {
-      // Squash vine/leaves underneath
       const vine = this.add.image(pos.x, pos.y - 10, 'squash-plant')
         .setScale(1.8).setAlpha(0);
       this.tweens.add({
@@ -1007,7 +1141,7 @@ class Level2Scene extends Phaser.Scene {
         squash.disableInteractive();
         this.tweens.add({
           targets: squash,
-          x: 290, y: GAME_H - 55,
+          x: 290, y: GAME_H - 52,
           scaleX: 1.2, scaleY: 1.2, angle: 0,
           duration: 500, ease: 'Quad.easeInOut',
           onComplete: () => {
@@ -1015,7 +1149,7 @@ class Level2Scene extends Phaser.Scene {
             vine.destroy();
             this.collected.squash++;
             this.squashCountText.setText(`${this.collected.squash} / ${this.targets.squash}`);
-            this.collectBurst(290, GAME_H - 55, 0xE8A317);
+            this.collectBurst(290, GAME_H - 52, 0xD4942A);
 
             if (this.collected.squash >= this.targets.squash) {
               this.time.delayedCall(800, () => this.startLogPhase());
@@ -1028,9 +1162,8 @@ class Level2Scene extends Phaser.Scene {
 
   startLogPhase() {
     this.phase = 3;
-    this.instructionText.setText('Tap the hardwood logs to collect them');
+    this.instructionLabel.setText('Tap the hardwood logs to collect them');
 
-    // Scatter logs in the scene
     const logPositions = [
       { x: 150, y: 400 }, { x: 420, y: 380 }, { x: 650, y: 410 },
     ];
@@ -1055,7 +1188,7 @@ class Level2Scene extends Phaser.Scene {
             log.destroy();
             this.collected.logs++;
             this.logCountText.setText(`${this.collected.logs} / ${this.targets.logs}`);
-            this.collectBurst(470, GAME_H - 55, 0x6B4226);
+            this.collectBurst(470, GAME_H - 55, 0x5A3820);
 
             if (this.collected.logs >= this.targets.logs) {
               this.time.delayedCall(800, () => this.startBeanPhase());
@@ -1068,29 +1201,25 @@ class Level2Scene extends Phaser.Scene {
 
   startBeanPhase() {
     this.phase = 4;
-    this.instructionText.setText('Tap the bean plants to gather the beans');
+    this.instructionLabel.setText('Tap the bean plants to gather the beans');
 
-    // Bean plants scattered
     const beanPositions = [
       { x: 200, y: 370 }, { x: 450, y: 390 }, { x: 600, y: 375 },
     ];
 
     beanPositions.forEach((pos, i) => {
-      // Bean plant
       const plant = this.add.image(pos.x, pos.y - 20, 'bean-plant')
         .setScale(2).setAlpha(0);
       this.tweens.add({
         targets: plant, alpha: 1, duration: 400, delay: i * 200
       });
 
-      // Clickable bean cluster
       const bean = this.add.image(pos.x + 10, pos.y - 15, 'kidney-bean')
         .setScale(2).setInteractive({ cursor: 'pointer' }).setAlpha(0);
       this.tweens.add({
         targets: bean, alpha: 1, duration: 400, delay: i * 200 + 100
       });
 
-      // Gentle sway on plant
       this.tweens.add({
         targets: [plant, bean], angle: 2,
         duration: 1800 + i * 200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
@@ -1098,17 +1227,16 @@ class Level2Scene extends Phaser.Scene {
 
       bean.on('pointerdown', () => {
         bean.disableInteractive();
-        // Pluck animation
         this.tweens.add({
           targets: bean,
-          x: 650, y: GAME_H - 55,
+          x: 650, y: GAME_H - 52,
           scaleX: 1.2, scaleY: 1.2, angle: 0,
           duration: 500, ease: 'Quad.easeInOut',
           onComplete: () => {
             bean.destroy();
             this.collected.beans++;
             this.beanCountText.setText(`${this.collected.beans} / ${this.targets.beans}`);
-            this.collectBurst(650, GAME_H - 55, 0x8B2500);
+            this.collectBurst(650, GAME_H - 52, 0x7A2000);
 
             if (this.collected.beans >= this.targets.beans) {
               this.time.delayedCall(1000, () => this.levelComplete());
@@ -1133,22 +1261,20 @@ class Level2Scene extends Phaser.Scene {
   }
 
   levelComplete() {
-    this.instructionText.setText('');
+    this.instructionLabel.setText('');
 
-    // Show gathered totals with narrative text
     const completeText = this.add.text(GAME_W / 2, GAME_H * 0.3,
       'Everything is gathered.', {
-      fontSize: '24px', fontFamily: 'Georgia, serif',
-      color: '#F5DEB3', align: 'center'
+      fontSize: '22px', fontFamily: FONT_DISPLAY,
+      color: '#e8d5a8', fontStyle: 'bold', letterSpacing: 2
     }).setOrigin(0.5).setAlpha(0);
 
     this.tweens.add({
       targets: completeText, alpha: 1, duration: 800
     });
 
-    // Celebration
     for (let i = 0; i < 15; i++) {
-      const colors = [0xF5DEB3, 0x8B2500, 0x6B4226, 0xDAA520];
+      const colors = [0xE8D5A8, 0x7A2000, 0x5A3820, 0xC4A050];
       const p = this.add.image(
         Phaser.Math.Between(100, 700),
         Phaser.Math.Between(250, 450),
@@ -1169,9 +1295,9 @@ class Level2Scene extends Phaser.Scene {
             'The corn is harvested. The hardwood gathered. The beans are ready.',
             '"Each one of those cobs, each kernel...\nhas the thoughts and energy of everyone who helped."',
             '"We always made sure we had an abundance.\nYou had to think at least three years ahead."',
-            '— Edgar, Cayuga Wolf Clan',
+            '\u2014 Edgar, Cayuga Wolf Clan',
             'Seeds saved. Animals fed. And what remains is ours.',
-            'Now comes the hardest part — the preparation.',
+            'Now comes the hardest part \u2014 the preparation.',
             'It is a labour of love.',
           ],
           nextScene: 'Level3_Intro'
@@ -1193,8 +1319,10 @@ class Level3IntroScene extends Phaser.Scene {
         'Chapter Three: Labour of Love',
         'Making corn soup the real way is a labour of love.',
         'We begin with tobacco and a prayer.\nWe put our good mind into the work.',
+        'The broth is built on salt pork \u2014\na ingredient that came through the colonial trade era.',
+        'It was never part of the original recipe.\nBut over generations, it became woven into the tradition,\na reminder of adaptation and survival.',
         '"I put my tobacco in the fire\nand I put my sense of mind into this.\nThe smoke will go up where He lives.\nAnd that\'s the Creator we\'re talking about."',
-        '— Edgar, Cayuga Wolf Clan',
+        '\u2014 Edgar, Cayuga Wolf Clan',
         '"Now our minds are one."',
       ],
       nextScene: 'Level3'
@@ -1204,52 +1332,51 @@ class Level3IntroScene extends Phaser.Scene {
 
 // ═══════════════════════════════════════════════════════
 // LEVEL 3 — PREPARE THE SOUP
-// Five steps: offering, shelling, nixtamalization, washing, cooking
 // ═══════════════════════════════════════════════════════
 class Level3Scene extends Phaser.Scene {
   constructor() { super('Level3'); }
 
   create() {
     this.cameras.main.fadeIn(800);
-
-    // ── Indoor/fire scene — warm dark background ──
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0x2A1F12, 0x2A1F12, 0x1A1207, 0x1A1207);
-    bg.fillRect(0, 0, GAME_W, GAME_H);
-
-    // Ground
-    bg.fillStyle(0x3E2723);
-    bg.fillRect(0, GAME_H * 0.7, GAME_W, GAME_H * 0.3);
-
-    // Instructions
-    this.instructionText = this.add.text(GAME_W / 2, 30, '', {
-      fontSize: '18px', fontFamily: 'Georgia, serif',
-      color: '#FFF8E7', stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
-
-    // Quote area (bottom)
-    this.quoteText = this.add.text(GAME_W / 2, GAME_H - 30, '', {
-      fontSize: '13px', fontFamily: 'Georgia, serif',
-      color: '#A08060', fontStyle: 'italic', align: 'center'
-    }).setOrigin(0.5);
-
+    this.buildInterior();
     this.step = 0;
     this.startStep1_Offering();
   }
 
-  // ── Step 1: Tobacco offering ──
+  buildInterior() {
+    const bg = this.add.graphics();
+    bg.fillGradientStyle(0x18120A, 0x18120A, 0x0F0B04, 0x0F0B04);
+    bg.fillRect(0, 0, GAME_W, GAME_H);
+    bg.fillStyle(0x251C10);
+    bg.fillRect(0, GAME_H * 0.7, GAME_W, GAME_H * 0.3);
+
+    const hud = createHUD(this, '');
+    this.instructionLabel = hud.label;
+
+    const quote = createQuoteBar(this);
+    this.quoteLabel = quote.label;
+  }
+
   startStep1_Offering() {
     this.step = 1;
-    this.instructionText.setText('Place the tobacco in the fire');
-    this.quoteText.setText('"We\'re bundling our minds. Now our minds are one."');
+    this.instructionLabel.setText('Place the tobacco in the fire');
+    this.quoteLabel.setText('"We\'re bundling our minds. Now our minds are one."');
 
-    // Fire
+    // Fire glow
     const fireGlow = this.add.graphics();
-    fireGlow.fillStyle(0xE8651A, 0.1);
-    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.6, 120);
-    fireGlow.fillStyle(0xFFA500, 0.06);
-    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.6, 80);
+    fireGlow.fillStyle(0xD85A1A, 0.08);
+    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.6, 140);
+    fireGlow.fillStyle(0xE8963A, 0.05);
+    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.6, 90);
     this.fireGlow = fireGlow;
+
+    // Embers
+    spawnAmbientParticles(this, {
+      count: 8, color: 0xE89040,
+      minY: GAME_H * 0.35, maxY: GAME_H * 0.6,
+      minX: GAME_W * 0.35, maxX: GAME_W * 0.65,
+      alpha: 0.2, speed: 2000
+    });
 
     this.fire = this.add.image(GAME_W / 2, GAME_H * 0.58, 'fire').setScale(3);
     this.tweens.add({
@@ -1257,19 +1384,17 @@ class Level3Scene extends Phaser.Scene {
       duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
     });
 
-    // Firepit base
     const pit = this.add.graphics();
-    pit.fillStyle(0x4A3828);
+    pit.fillStyle(0x3A2818);
     pit.fillEllipse(GAME_W / 2, GAME_H * 0.65, 120, 30);
-    pit.lineStyle(2, 0x5C4033);
+    pit.lineStyle(2, 0x4A3628);
     pit.strokeEllipse(GAME_W / 2, GAME_H * 0.65, 120, 30);
 
-    // Tobacco — draggable
     this.tobacco = this.add.image(200, GAME_H * 0.5, 'tobacco')
       .setScale(3).setInteractive({ draggable: true, cursor: 'pointer' });
 
     this.add.text(200, GAME_H * 0.5 + 30, 'Tobacco', {
-      fontSize: '12px', fontFamily: 'Georgia, serif', color: '#A08860'
+      fontSize: '11px', fontFamily: FONT_BODY, color: '#7a6a4a'
     }).setOrigin(0.5);
 
     this.tobacco.on('drag', (p, x, y) => {
@@ -1283,16 +1408,13 @@ class Level3Scene extends Phaser.Scene {
       );
       if (dist < 60) {
         this.tobacco.disableInteractive();
-        // Tobacco into fire
         this.tweens.add({
           targets: this.tobacco,
           x: GAME_W / 2, y: GAME_H * 0.58, alpha: 0, scaleX: 0.5, scaleY: 0.5,
           duration: 600,
           onComplete: () => {
             this.tobacco.destroy();
-            // Smoke rises
             this.createSmoke(GAME_W / 2, GAME_H * 0.5, 15);
-            // Fire flares
             this.tweens.add({
               targets: this.fire, scaleX: 4, scaleY: 4,
               duration: 400, yoyo: true
@@ -1311,7 +1433,7 @@ class Level3Scene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const smoke = this.add.image(
         x + Phaser.Math.Between(-10, 10), y, 'particle'
-      ).setScale(2).setTint(0xC0C0C0).setAlpha(0.4);
+      ).setScale(2).setTint(0xB0B0B0).setAlpha(0.3);
 
       this.tweens.add({
         targets: smoke,
@@ -1326,29 +1448,11 @@ class Level3Scene extends Phaser.Scene {
   }
 
   transitionStep(nextStep) {
-    this.cameras.main.fadeOut(600, 26, 18, 7);
+    this.cameras.main.fadeOut(600, 15, 11, 4);
     this.time.delayedCall(600, () => {
-      // Clear scene objects
       this.children.removeAll(true);
-
-      // Rebuild bg
-      const bg = this.add.graphics();
-      bg.fillGradientStyle(0x2A1F12, 0x2A1F12, 0x1A1207, 0x1A1207);
-      bg.fillRect(0, 0, GAME_W, GAME_H);
-      bg.fillStyle(0x3E2723);
-      bg.fillRect(0, GAME_H * 0.7, GAME_W, GAME_H * 0.3);
-
-      this.instructionText = this.add.text(GAME_W / 2, 30, '', {
-        fontSize: '18px', fontFamily: 'Georgia, serif',
-        color: '#FFF8E7', stroke: '#000', strokeThickness: 2
-      }).setOrigin(0.5);
-
-      this.quoteText = this.add.text(GAME_W / 2, GAME_H - 30, '', {
-        fontSize: '13px', fontFamily: 'Georgia, serif',
-        color: '#A08060', fontStyle: 'italic', align: 'center'
-      }).setOrigin(0.5);
-
-      this.cameras.main.fadeIn(600, 26, 18, 7);
+      this.buildInterior();
+      this.cameras.main.fadeIn(600, 15, 11, 4);
 
       switch (nextStep) {
         case 2: this.startStep2_Shelling(); break;
@@ -1359,43 +1463,39 @@ class Level3Scene extends Phaser.Scene {
     });
   }
 
-  // ── Step 2: Shell the corn ──
   startStep2_Shelling() {
     this.step = 2;
-    this.instructionText.setText('Click the corn cobs to shell them');
-    this.quoteText.setText('"I\'ll start the first one with my hand.\nIt\'s kind of harsh on the skin."');
+    this.instructionLabel.setText('Click the corn cobs to shell them');
+    this.quoteLabel.setText('"I\'ll start the first one with my hand. It\'s kind of harsh on the skin."');
 
     this.kernelsCollected = 0;
     this.kernelsNeeded = 4;
 
-    // Bowl to collect kernels
     const bowl = this.add.graphics();
-    bowl.fillStyle(0x8B6914);
+    bowl.fillStyle(0x7A5A14);
     bowl.fillEllipse(GAME_W / 2, GAME_H * 0.65, 80, 30);
-    bowl.fillStyle(0x7A5C10);
+    bowl.fillStyle(0x6A4A0E);
     bowl.fillEllipse(GAME_W / 2, GAME_H * 0.63, 70, 22);
 
     this.kernelCountText = this.add.text(GAME_W / 2, GAME_H * 0.72, '0 / 4 cobs shelled', {
-      fontSize: '14px', fontFamily: 'Georgia, serif', color: '#F5DEB3'
+      fontSize: '13px', fontFamily: FONT_BODY, color: '#e8dcc8'
     }).setOrigin(0.5);
 
-    // Corn cobs to shell
     const cobPositions = [
       { x: 150, y: GAME_H * 0.45 }, { x: 320, y: GAME_H * 0.42 },
       { x: 480, y: GAME_H * 0.46 }, { x: 650, y: GAME_H * 0.43 },
     ];
 
-    cobPositions.forEach((pos, i) => {
+    cobPositions.forEach((pos) => {
       const cob = this.add.image(pos.x, pos.y, 'corn-cob')
         .setScale(2.5).setInteractive({ cursor: 'pointer' });
 
       cob.on('pointerdown', () => {
         cob.disableInteractive();
 
-        // Kernels fly off
         for (let k = 0; k < 8; k++) {
           const kernel = this.add.image(cob.x, cob.y, 'corn-seed')
-            .setScale(1.5).setTint(0xDAA520);
+            .setScale(1.5).setTint(0xC4A050);
           this.tweens.add({
             targets: kernel,
             x: GAME_W / 2 + Phaser.Math.Between(-20, 20),
@@ -1405,20 +1505,18 @@ class Level3Scene extends Phaser.Scene {
           });
         }
 
-        // Cob fades to husk
         this.tweens.add({
           targets: cob, alpha: 0.3, scaleX: 2, scaleY: 2,
           duration: 500, onComplete: () => {
-            cob.setTint(0x888888);
+            cob.setTint(0x666666);
             this.kernelsCollected++;
             this.kernelCountText.setText(`${this.kernelsCollected} / ${this.kernelsNeeded} cobs shelled`);
 
-            // Add kernels to bowl visually
-            const bowlKernel = this.add.image(
+            this.add.image(
               GAME_W / 2 + Phaser.Math.Between(-15, 15),
               GAME_H * 0.62 + Phaser.Math.Between(-5, 5),
               'corn-seed'
-            ).setScale(1).setTint(0xDAA520);
+            ).setScale(1).setTint(0xC4A050);
 
             if (this.kernelsCollected >= this.kernelsNeeded) {
               this.time.delayedCall(1200, () => this.transitionStep(3));
@@ -1429,15 +1527,13 @@ class Level3Scene extends Phaser.Scene {
     });
   }
 
-  // ── Step 3: Nixtamalization with hardwood ashes ──
   startStep3_Nixtamalization() {
     this.step = 3;
-    this.instructionText.setText('Add the hardwood ashes to the boiling corn');
-    this.quoteText.setText('"It\'ll cause a chemical reaction — nixtamalization.\nThis is my favourite part."');
+    this.instructionLabel.setText('Add the hardwood ashes to the boiling corn');
+    this.quoteLabel.setText('"It\'ll cause a chemical reaction \u2014 nixtamalization. This is my favourite part."');
 
-    // Pot over fire
     const fireGlow = this.add.graphics();
-    fireGlow.fillStyle(0xE8651A, 0.08);
+    fireGlow.fillStyle(0xD85A1A, 0.06);
     fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.55, 100);
 
     const fire = this.add.image(GAME_W / 2, GAME_H * 0.6, 'fire').setScale(2);
@@ -1446,17 +1542,14 @@ class Level3Scene extends Phaser.Scene {
       duration: 600, yoyo: true, repeat: -1
     });
 
-    // Pot
     const pot = this.add.graphics();
-    pot.fillStyle(0x404040);
+    pot.fillStyle(0x353535);
     pot.fillRoundedRect(GAME_W / 2 - 50, GAME_H * 0.42, 100, 70, 8);
-    pot.fillStyle(0x505050);
+    pot.fillStyle(0x454545);
     pot.fillRect(GAME_W / 2 - 55, GAME_H * 0.42, 110, 10);
-    // Corn inside pot
-    pot.fillStyle(0xDAA520, 0.5);
+    pot.fillStyle(0xC4A050, 0.5);
     pot.fillRect(GAME_W / 2 - 40, GAME_H * 0.47, 80, 30);
 
-    // Steam from pot
     this.time.addEvent({
       delay: 400, repeat: -1,
       callback: () => {
@@ -1464,7 +1557,7 @@ class Level3Scene extends Phaser.Scene {
         const s = this.add.image(
           GAME_W / 2 + Phaser.Math.Between(-20, 20),
           GAME_H * 0.42, 'particle'
-        ).setScale(1.5).setTint(0xCCCCCC).setAlpha(0.3);
+        ).setScale(1.5).setTint(0xBBBBBB).setAlpha(0.25);
         this.tweens.add({
           targets: s, y: GAME_H * 0.3, scaleX: 3, scaleY: 3, alpha: 0,
           duration: 1200, onComplete: () => s.destroy()
@@ -1472,12 +1565,11 @@ class Level3Scene extends Phaser.Scene {
       }
     });
 
-    // Ash pile — draggable
     this.ashPile = this.add.image(150, GAME_H * 0.5, 'ash-pile')
       .setScale(3).setInteractive({ draggable: true, cursor: 'pointer' });
 
     this.add.text(150, GAME_H * 0.5 + 25, 'Hardwood Ashes', {
-      fontSize: '11px', fontFamily: 'Georgia, serif', color: '#A08860'
+      fontSize: '10px', fontFamily: FONT_BODY, color: '#7a6a4a'
     }).setOrigin(0.5);
 
     this.ashPile.on('drag', (p, x, y) => {
@@ -1491,25 +1583,22 @@ class Level3Scene extends Phaser.Scene {
       );
       if (dist < 70) {
         this.ashPile.disableInteractive();
-        // Ashes into pot
         this.tweens.add({
           targets: this.ashPile,
           x: GAME_W / 2, y: GAME_H * 0.45, alpha: 0,
           duration: 500,
           onComplete: () => {
             this.ashPile.destroy();
-            // Color change — corn turns darker (nixtamalization)
-            this.instructionText.setText('The ashes transform the corn...');
-            this.quoteText.setText('"If roasted umami was a word, I would say that is just\nmouth-wateringly delicious."');
+            this.instructionLabel.setText('The ashes transform the corn...');
+            this.quoteLabel.setText('"If roasted umami was a word, I would say that is just mouth-wateringly delicious."');
 
-            // Visual reaction — bubbling
             this.time.addEvent({
               delay: 200, repeat: 12,
               callback: () => {
                 const bubble = this.add.image(
                   GAME_W / 2 + Phaser.Math.Between(-30, 30),
                   GAME_H * 0.46, 'particle'
-                ).setScale(2).setTint(0xA09070);
+                ).setScale(2).setTint(0x908060);
                 this.tweens.add({
                   targets: bubble, y: GAME_H * 0.4, alpha: 0, scaleX: 3, scaleY: 3,
                   duration: 600, onComplete: () => bubble.destroy()
@@ -1527,27 +1616,24 @@ class Level3Scene extends Phaser.Scene {
     });
   }
 
-  // ── Step 4: Washing the corn ──
   startStep4_Washing() {
     this.step = 4;
-    this.instructionText.setText('Click to wash the corn — put your good thoughts in');
-    this.quoteText.setText('"This is a good time to offer your words of thankfulness."');
+    this.instructionLabel.setText('Click to wash the corn \u2014 put your good thoughts in');
+    this.quoteLabel.setText('"This is a good time to offer your words of thankfulness."');
 
-    // Wash basin
     const basin = this.add.graphics();
-    basin.fillStyle(0x708090);
+    basin.fillStyle(0x607080);
     basin.fillRoundedRect(GAME_W / 2 - 80, GAME_H * 0.4, 160, 80, 12);
-    basin.fillStyle(0x4A90D9, 0.6);
+    basin.fillStyle(0x5A9AC8, 0.5);
     basin.fillRect(GAME_W / 2 - 70, GAME_H * 0.44, 140, 55);
 
-    // Corn kernels in water (dirty)
     this.washKernels = [];
     for (let i = 0; i < 12; i++) {
       const k = this.add.image(
         GAME_W / 2 + Phaser.Math.Between(-50, 50),
         GAME_H * 0.48 + Phaser.Math.Between(-10, 20),
         'corn-seed'
-      ).setScale(1.5).setTint(0x8B7355); // Dirty brown
+      ).setScale(1.5).setTint(0x7A6348);
       this.washKernels.push(k);
     }
 
@@ -1555,10 +1641,9 @@ class Level3Scene extends Phaser.Scene {
     this.washNeeded = 5;
 
     this.washProgress = this.add.text(GAME_W / 2, GAME_H * 0.35, 'Wash: 0 / 5', {
-      fontSize: '14px', fontFamily: 'Georgia, serif', color: '#F5DEB3'
+      fontSize: '13px', fontFamily: FONT_BODY, color: '#e8dcc8'
     }).setOrigin(0.5);
 
-    // Click basin to wash
     const washZone = this.add.zone(GAME_W / 2, GAME_H * 0.48, 160, 80)
       .setInteractive({ cursor: 'pointer' });
 
@@ -1566,7 +1651,6 @@ class Level3Scene extends Phaser.Scene {
       this.washCount++;
       this.washProgress.setText(`Wash: ${this.washCount} / ${this.washNeeded}`);
 
-      // Swirl animation
       this.washKernels.forEach((k, i) => {
         this.tweens.add({
           targets: k,
@@ -1576,12 +1660,11 @@ class Level3Scene extends Phaser.Scene {
         });
       });
 
-      // Water splash
       for (let i = 0; i < 5; i++) {
         const splash = this.add.image(
           GAME_W / 2 + Phaser.Math.Between(-40, 40),
           GAME_H * 0.45, 'water-drop'
-        ).setScale(1.5).setTint(0x4A90D9);
+        ).setScale(1.5).setTint(0x5A9AC8);
         this.tweens.add({
           targets: splash,
           y: GAME_H * 0.38, alpha: 0,
@@ -1590,11 +1673,10 @@ class Level3Scene extends Phaser.Scene {
         });
       }
 
-      // Gradually clean the kernels (change tint)
       const cleanness = this.washCount / this.washNeeded;
       const tint = Phaser.Display.Color.Interpolate.ColorWithColor(
-        Phaser.Display.Color.ValueToColor(0x8B7355),
-        Phaser.Display.Color.ValueToColor(0xF5DEB3),
+        Phaser.Display.Color.ValueToColor(0x7A6348),
+        Phaser.Display.Color.ValueToColor(0xE8D5A8),
         100, Math.floor(cleanness * 100)
       );
       const tintHex = Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b);
@@ -1602,117 +1684,212 @@ class Level3Scene extends Phaser.Scene {
 
       if (this.washCount >= this.washNeeded) {
         washZone.disableInteractive();
-        this.instructionText.setText('The corn is clean and ready');
-        this.quoteText.setText('"I feel like I\'m one with this corn right now."');
+        this.instructionLabel.setText('The corn is clean and ready');
+        this.quoteLabel.setText('"I feel like I\'m one with this corn right now."');
         this.time.delayedCall(2000, () => this.transitionStep(5));
       }
     });
   }
 
-  // ── Step 5: Build the broth and cook ──
   startStep5_Cooking() {
     this.step = 5;
-    this.instructionText.setText('Add ingredients to the pot to build the broth');
-    this.quoteText.setText('"Corn\'s got a delicate flavour.\nI want a broth that is strong enough, but not too strong."');
+    this.instructionLabel.setText('Drag the hardwood logs to build the fire');
+    this.quoteLabel.setText('"You need a good, steady fire. The hardwood burns slow and hot."');
 
-    // Big pot
-    const pot = this.add.graphics();
-    pot.fillStyle(0x404040);
-    pot.fillRoundedRect(GAME_W / 2 - 60, GAME_H * 0.35, 120, 100, 10);
-    pot.fillStyle(0x505050);
-    pot.fillRect(GAME_W / 2 - 65, GAME_H * 0.35, 130, 12);
-    // Water in pot
-    pot.fillStyle(0x4A90D9, 0.3);
-    pot.fillRect(GAME_W / 2 - 50, GAME_H * 0.4, 100, 60);
+    // Firepit area (no fire yet)
+    this.firePit = this.add.graphics();
+    this.firePit.fillStyle(0x3A2818);
+    this.firePit.fillEllipse(GAME_W / 2, GAME_H * 0.68, 120, 30);
+    this.firePit.lineStyle(2, 0x4A3628);
+    this.firePit.strokeEllipse(GAME_W / 2, GAME_H * 0.68, 120, 30);
 
-    // Fire under pot
-    const fire = this.add.image(GAME_W / 2, GAME_H * 0.72, 'fire').setScale(2.5);
-    this.tweens.add({
-      targets: fire, scaleX: 2.7, scaleY: 2.3,
-      duration: 600, yoyo: true, repeat: -1
-    });
+    // Dim glow placeholder
+    const dimGlow = this.add.graphics();
+    dimGlow.fillStyle(0xD85A1A, 0.02);
+    dimGlow.fillCircle(GAME_W / 2, GAME_H * 0.65, 80);
 
-    const fireGlow = this.add.graphics();
-    fireGlow.fillStyle(0xE8651A, 0.06);
-    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.65, 100);
+    // Logs to drag to the firepit
+    this.logsAdded = 0;
+    this.logsNeeded = 3;
 
-    // Ingredients to add
-    this.ingredientsAdded = 0;
-    this.ingredientsNeeded = 3;
-
-    const ingredients = [
-      { key: 'corn-seed', x: 120, y: GAME_H * 0.45, label: 'Corn', tint: 0xF5DEB3 },
-      { key: 'kidney-bean', x: 120, y: GAME_H * 0.55, label: 'Beans', tint: 0x8B2500 },
-      { key: 'corn-seed', x: 120, y: GAME_H * 0.65, label: 'Salt Pork', tint: 0xE8B0B0 },
+    const logPositions = [
+      { x: 120, y: GAME_H * 0.50 },
+      { x: 120, y: GAME_H * 0.60 },
+      { x: 120, y: GAME_H * 0.70 },
     ];
 
-    ingredients.forEach((ing, i) => {
-      const item = this.add.image(ing.x, ing.y, ing.key)
-        .setScale(2.5).setTint(ing.tint)
-        .setInteractive({ draggable: true, cursor: 'pointer' });
+    this.add.text(120, GAME_H * 0.42, 'Hardwood', {
+      fontSize: '10px', fontFamily: FONT_BODY, color: '#7a6a4a'
+    }).setOrigin(0.5);
 
-      this.add.text(ing.x + 25, ing.y, ing.label, {
-        fontSize: '12px', fontFamily: 'Georgia, serif', color: '#A08860'
-      }).setOrigin(0, 0.5);
+    logPositions.forEach((pos) => {
+      const log = this.add.image(pos.x, pos.y, 'log')
+        .setScale(2.2).setInteractive({ draggable: true, cursor: 'pointer' });
 
-      item.origX = ing.x;
-      item.origY = ing.y;
+      log.origX = pos.x;
+      log.origY = pos.y;
 
-      item.on('drag', (p, x, y) => { item.x = x; item.y = y; });
+      log.on('drag', (p, x, y) => { log.x = x; log.y = y; });
 
-      item.on('dragend', () => {
+      log.on('dragend', () => {
         const dist = Phaser.Math.Distance.Between(
-          item.x, item.y, GAME_W / 2, GAME_H * 0.45
+          log.x, log.y, GAME_W / 2, GAME_H * 0.65
         );
-        if (dist < 70) {
-          item.disableInteractive();
+        if (dist < 80) {
+          log.disableInteractive();
           this.tweens.add({
-            targets: item,
-            x: GAME_W / 2, y: GAME_H * 0.45, alpha: 0,
-            scaleX: 1, scaleY: 1,
+            targets: log,
+            x: GAME_W / 2 + Phaser.Math.Between(-15, 15),
+            y: GAME_H * 0.66, alpha: 0.7,
+            scaleX: 1.5, scaleY: 1.5,
+            angle: Phaser.Math.Between(-20, 20),
             duration: 400,
             onComplete: () => {
-              item.destroy();
-              this.ingredientsAdded++;
+              this.logsAdded++;
 
-              // Splash
-              for (let s = 0; s < 4; s++) {
+              // Spark particles
+              for (let s = 0; s < 3; s++) {
                 const sp = this.add.image(
-                  GAME_W / 2 + Phaser.Math.Between(-20, 20),
-                  GAME_H * 0.42, 'particle'
-                ).setScale(1.5).setTint(ing.tint);
+                  GAME_W / 2 + Phaser.Math.Between(-10, 10),
+                  GAME_H * 0.65, 'particle'
+                ).setScale(1.5).setTint(0xE89040);
                 this.tweens.add({
-                  targets: sp, y: GAME_H * 0.35, alpha: 0,
+                  targets: sp, y: GAME_H * 0.55, alpha: 0,
                   duration: 400, delay: s * 40,
                   onComplete: () => sp.destroy()
                 });
               }
 
-              if (this.ingredientsAdded >= this.ingredientsNeeded) {
-                this.time.delayedCall(800, () => this.cookingComplete());
+              if (this.logsAdded >= this.logsNeeded) {
+                this.time.delayedCall(600, () => this.startFireAndCook());
               }
             }
           });
         } else {
-          item.x = item.origX;
-          item.y = item.origY;
+          log.x = log.origX;
+          log.y = log.origY;
         }
       });
     });
   }
 
-  cookingComplete() {
-    this.instructionText.setText('The soup is ready.');
-    this.quoteText.setText('');
+  startFireAndCook() {
+    // Fire ignites
+    this.instructionLabel.setText('Add ingredients to the pot to build the broth');
+    this.quoteLabel.setText('"Corn\'s got a delicate flavour. I want a broth that is strong enough, but not too strong."');
 
-    // Steam rising — the soup is done
+    const fire = this.add.image(GAME_W / 2, GAME_H * 0.63, 'fire').setScale(2.5).setAlpha(0);
+    this.tweens.add({
+      targets: fire, alpha: 1, duration: 600,
+      onComplete: () => {
+        this.tweens.add({
+          targets: fire, scaleX: 2.7, scaleY: 2.3,
+          duration: 600, yoyo: true, repeat: -1
+        });
+      }
+    });
+
+    const fireGlow = this.add.graphics();
+    fireGlow.fillStyle(0xD85A1A, 0.04);
+    fireGlow.fillCircle(GAME_W / 2, GAME_H * 0.58, 100);
+    fireGlow.setAlpha(0);
+    this.tweens.add({ targets: fireGlow, alpha: 1, duration: 800 });
+
+    // Pot appears above the fire
+    const pot = this.add.graphics();
+    pot.fillStyle(0x353535);
+    pot.fillRoundedRect(GAME_W / 2 - 60, GAME_H * 0.35, 120, 100, 10);
+    pot.fillStyle(0x454545);
+    pot.fillRect(GAME_W / 2 - 65, GAME_H * 0.35, 130, 12);
+    pot.fillStyle(0x5A9AC8, 0.25);
+    pot.fillRect(GAME_W / 2 - 50, GAME_H * 0.4, 100, 60);
+    pot.setAlpha(0);
+    this.tweens.add({ targets: pot, alpha: 1, duration: 600, delay: 300 });
+
+    // Ingredients appear after pot
+    this.time.delayedCall(800, () => {
+      this.ingredientsAdded = 0;
+      this.ingredientsNeeded = 3;
+
+      const ingredients = [
+        { key: 'corn-seed', x: 120, y: GAME_H * 0.45, label: 'Corn', tint: 0xE8D5A8 },
+        { key: 'kidney-bean', x: 120, y: GAME_H * 0.55, label: 'Beans', tint: 0x7A2000 },
+        { key: 'corn-seed', x: 120, y: GAME_H * 0.65, label: 'Salt Pork', tint: 0xD8A0A0,
+          quote: '"Salt pork came from the trade era \u2014 not the original recipe,\nbut it became ours over time."' },
+      ];
+
+      ingredients.forEach((ing) => {
+        const item = this.add.image(ing.x, ing.y, ing.key)
+          .setScale(2.5).setTint(ing.tint).setAlpha(0)
+          .setInteractive({ draggable: true, cursor: 'pointer' });
+
+        const label = this.add.text(ing.x + 25, ing.y, ing.label, {
+          fontSize: '11px', fontFamily: FONT_BODY, color: '#7a6a4a'
+        }).setOrigin(0, 0.5).setAlpha(0);
+
+        this.tweens.add({ targets: [item, label], alpha: 1, duration: 400 });
+
+        item.origX = ing.x;
+        item.origY = ing.y;
+
+        item.on('drag', (p, x, y) => { item.x = x; item.y = y; });
+
+        item.on('dragend', () => {
+          const dist = Phaser.Math.Distance.Between(
+            item.x, item.y, GAME_W / 2, GAME_H * 0.45
+          );
+          if (dist < 70) {
+            item.disableInteractive();
+            this.tweens.add({
+              targets: item,
+              x: GAME_W / 2, y: GAME_H * 0.45, alpha: 0,
+              scaleX: 1, scaleY: 1,
+              duration: 400,
+              onComplete: () => {
+                item.destroy();
+                this.ingredientsAdded++;
+
+                for (let s = 0; s < 4; s++) {
+                  const sp = this.add.image(
+                    GAME_W / 2 + Phaser.Math.Between(-20, 20),
+                    GAME_H * 0.42, 'particle'
+                  ).setScale(1.5).setTint(ing.tint);
+                  this.tweens.add({
+                    targets: sp, y: GAME_H * 0.35, alpha: 0,
+                    duration: 400, delay: s * 40,
+                    onComplete: () => sp.destroy()
+                  });
+                }
+
+                if (ing.quote) {
+                  this.quoteLabel.setText(ing.quote);
+                }
+
+                if (this.ingredientsAdded >= this.ingredientsNeeded) {
+                  this.time.delayedCall(800, () => this.cookingComplete());
+                }
+              }
+            });
+          } else {
+            item.x = item.origX;
+            item.y = item.origY;
+          }
+        });
+      });
+    });
+  }
+
+  cookingComplete() {
+    this.instructionLabel.setText('The soup is ready.');
+    this.quoteLabel.setText('');
+
     this.time.addEvent({
       delay: 300, repeat: 15,
       callback: () => {
         const s = this.add.image(
           GAME_W / 2 + Phaser.Math.Between(-25, 25),
           GAME_H * 0.35, 'particle'
-        ).setScale(2).setTint(0xDDDDDD).setAlpha(0.4);
+        ).setScale(2).setTint(0xCCCCCC).setAlpha(0.35);
         this.tweens.add({
           targets: s, y: GAME_H * 0.15, scaleX: 5, scaleY: 5, alpha: 0,
           duration: 1500, onComplete: () => s.destroy()
@@ -1720,9 +1897,8 @@ class Level3Scene extends Phaser.Scene {
       }
     });
 
-    // Warm glow
     const glow = this.add.graphics();
-    glow.fillStyle(0xFFA500, 0.05);
+    glow.fillStyle(0xE8963A, 0.04);
     glow.fillCircle(GAME_W / 2, GAME_H * 0.45, 150);
 
     this.time.delayedCall(4000, () => {
@@ -1732,8 +1908,8 @@ class Level3Scene extends Phaser.Scene {
           lines: [
             'The soup simmers. The aroma fills the air.',
             '"This just brings me back to my childhood.\nAnd that\'s that medicine that we talk about."',
-            '"If roasted umami was a word,\nI would say that roasted umami is just that —\nmouth-wateringly delicious."',
-            '— Karl Dockstader, Oneida Bear Clan',
+            '"If roasted umami was a word,\nI would say that roasted umami is just that \u2014\nmouth-wateringly delicious."',
+            '\u2014 Karl Dockstader, Oneida Bear Clan',
             'But the soup is not complete until it is shared.',
             '"At the end of the day, this bowl is about community."',
           ],
@@ -1755,7 +1931,7 @@ class Level4IntroScene extends Phaser.Scene {
       lines: [
         'Chapter Four: Closing the Circle',
         'The soup is ready.',
-        'Now we share it with our community —\nour elders, our families, those who give so much.',
+        'Now we share it with our community \u2014\nour elders, our families, those who give so much.',
         '"I love being able to serve corn soup to our elders.\nIt\'s a real honour."',
         'Each bowl carries the energy of everyone\nwho planted, harvested, and prepared.',
         'Deliver the soup. Close the circle.',
@@ -1767,7 +1943,6 @@ class Level4IntroScene extends Phaser.Scene {
 
 // ═══════════════════════════════════════════════════════
 // LEVEL 4 — SHARE WITH COMMUNITY
-// Deliver bowls of soup to community members
 // ═══════════════════════════════════════════════════════
 class Level4Scene extends Phaser.Scene {
   constructor() { super('Level4'); }
@@ -1777,41 +1952,35 @@ class Level4Scene extends Phaser.Scene {
 
     // ── Evening sky — warm dusk ──
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0x4A3060, 0x6A4070, 0xE8967A, 0xF0B87A);
+    bg.fillGradientStyle(0x3A2448, 0x5A3458, 0xD08A5A, 0xE0A868);
     bg.fillRect(0, 0, GAME_W, GAME_H * 0.45);
 
-    // Ground — community path
-    bg.fillGradientStyle(0x5C4033, 0x5C4033, 0x3E2723, 0x3E2723);
+    // Ground
+    bg.fillGradientStyle(0x4A3628, 0x4A3628, 0x251C10, 0x251C10);
     bg.fillRect(0, GAME_H * 0.45, GAME_W, GAME_H * 0.55);
 
     // Path
-    bg.fillStyle(0x6B5240);
+    bg.fillStyle(0x5A4230);
     bg.fillRect(0, GAME_H * 0.62, GAME_W, 40);
-    bg.fillStyle(0x7A6250);
+    bg.fillStyle(0x6A5240);
     bg.fillRect(0, GAME_H * 0.64, GAME_W, 20);
 
-    // Stars in sky
-    for (let i = 0; i < 15; i++) {
-      bg.fillStyle(0xFFFFFF, 0.3 + Math.random() * 0.4);
-      bg.fillCircle(
-        Phaser.Math.Between(20, GAME_W - 20),
-        Phaser.Math.Between(10, GAME_H * 0.25),
-        1
-      );
-    }
+    // Stars
+    drawStars(bg, 25, GAME_H * 0.25);
 
-    // Instructions
-    this.instructionText = this.add.text(GAME_W / 2, 25, 'Drag a bowl of soup to each person', {
-      fontSize: '18px', fontFamily: 'Georgia, serif',
-      color: '#FFF8E7', stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
+    // Fireflies
+    spawnAmbientParticles(this, {
+      count: 10, color: 0xE8D080, minY: GAME_H * 0.1,
+      maxY: GAME_H * 0.5, alpha: 0.3, speed: 3000
+    });
 
-    // Quote area
-    this.quoteText = this.add.text(GAME_W / 2, GAME_H - 20, '', {
-      fontSize: '13px', fontFamily: 'Georgia, serif',
-      color: '#A08060', fontStyle: 'italic', align: 'center',
-      wordWrap: { width: 600 }
-    }).setOrigin(0.5);
+    // HUD
+    const hud = createHUD(this, 'Drag a bowl of soup to each person');
+    this.instructionLabel = hud.label;
+
+    // Quote
+    const quote = createQuoteBar(this);
+    this.quoteLabel = quote.label;
 
     // ── Community members ──
     this.deliveries = 0;
@@ -1823,36 +1992,35 @@ class Level4Scene extends Phaser.Scene {
         name: 'Geralda',
         desc: 'Community leader',
         quote: '"Her dad was regarded as one of the better corn soup makers.\nShe\'s given a lot to our community."',
-        color: 0xC0392B,
+        color: 0xA83830,
       },
       {
         x: 320, y: GAME_H * 0.48,
         name: 'Jill',
         desc: 'Regalia maker & mother',
         quote: '"She does a lot of community favours.\nShe has a big heart."',
-        color: 0x2980B9,
+        color: 0x2870A8,
       },
       {
         x: 520, y: GAME_H * 0.51,
         name: 'Gary',
         desc: 'Knowledge keeper',
         quote: '"The more corn soup makers we have is important.\nIt\'s not just a bowl of soup."',
-        color: 0x27AE60,
+        color: 0x288A48,
       },
       {
         x: 700, y: GAME_H * 0.49,
         name: 'The Elders',
         desc: 'Our grandmothers\' generation',
         quote: '"I love being able to serve corn soup to our elders.\nIt\'s a real honour."',
-        color: 0x8E44AD,
+        color: 0x7A3890,
       },
     ];
 
     this.peopleData = people;
     this.personSprites = [];
 
-    people.forEach((person, i) => {
-      // Simple person figure
+    people.forEach((person) => {
       const g = this.add.graphics();
 
       // Body
@@ -1860,7 +2028,7 @@ class Level4Scene extends Phaser.Scene {
       g.fillRoundedRect(person.x - 12, person.y - 10, 24, 35, 6);
 
       // Head
-      g.fillStyle(0xDEB887);
+      g.fillStyle(0xC8A078);
       g.fillCircle(person.x, person.y - 20, 12);
 
       // Eyes
@@ -1880,28 +2048,26 @@ class Level4Scene extends Phaser.Scene {
 
       this.personSprites.push(g);
 
-      // Name label
       this.add.text(person.x, person.y + 32, person.name, {
-        fontSize: '13px', fontFamily: 'Georgia, serif',
-        color: '#F5DEB3', fontStyle: 'bold'
+        fontSize: '12px', fontFamily: FONT_DISPLAY,
+        color: '#e8d5a8', fontStyle: 'bold', letterSpacing: 1
       }).setOrigin(0.5);
 
       this.add.text(person.x, person.y + 46, person.desc, {
-        fontSize: '10px', fontFamily: 'Georgia, serif', color: '#A08860'
+        fontSize: '9px', fontFamily: FONT_BODY, color: '#7a6a4a'
       }).setOrigin(0.5);
 
-      // Drop zone
       person.zone = this.add.zone(person.x, person.y, 60, 70)
         .setInteractive({ dropZone: true });
       person.delivered = false;
     });
 
-    // ── Soup pot (source of bowls) ──
+    // ── Soup pot ──
     const potX = GAME_W / 2;
     const potY = GAME_H * 0.82;
 
     const potGlow = this.add.graphics();
-    potGlow.fillStyle(0xE8651A, 0.06);
+    potGlow.fillStyle(0xD85A1A, 0.05);
     potGlow.fillCircle(potX, potY, 60);
 
     const potFire = this.add.image(potX, potY + 10, 'fire').setScale(1.5);
@@ -1910,29 +2076,24 @@ class Level4Scene extends Phaser.Scene {
       duration: 600, yoyo: true, repeat: -1
     });
 
-    // Pot graphic
     const potG = this.add.graphics();
-    potG.fillStyle(0x404040);
+    potG.fillStyle(0x353535);
     potG.fillRoundedRect(potX - 30, potY - 20, 60, 40, 6);
-    potG.fillStyle(0x505050);
+    potG.fillStyle(0x454545);
     potG.fillRect(potX - 33, potY - 20, 66, 8);
 
     this.add.text(potX, potY + 28, 'Drag a bowl to each person', {
-      fontSize: '11px', fontFamily: 'Georgia, serif', color: '#A08860'
+      fontSize: '10px', fontFamily: FONT_BODY, color: '#6a5a40'
     }).setOrigin(0.5);
 
-    // Spawn draggable bowls
     this.spawnBowl(potX, potY);
 
-    // Enable drag-and-drop
     this.input.on('drop', (pointer, gameObject, dropZone) => {
-      // Find which person this zone belongs to
       const person = this.peopleData.find(p => p.zone === dropZone);
       if (person && !person.delivered) {
         person.delivered = true;
         gameObject.disableInteractive();
 
-        // Bowl arrives
         this.tweens.add({
           targets: gameObject,
           x: person.x, y: person.y + 10,
@@ -1941,10 +2102,9 @@ class Level4Scene extends Phaser.Scene {
           onComplete: () => {
             this.deliveries++;
 
-            // Warm particle burst
             for (let i = 0; i < 10; i++) {
               const p = this.add.image(person.x, person.y, 'particle')
-                .setScale(2).setTint(0xFFA500);
+                .setScale(2).setTint(0xE8963A);
               this.tweens.add({
                 targets: p,
                 x: person.x + Phaser.Math.Between(-30, 30),
@@ -1954,19 +2114,16 @@ class Level4Scene extends Phaser.Scene {
               });
             }
 
-            // Show person's quote
-            this.quoteText.setText(person.quote);
+            this.quoteLabel.setText(person.quote);
 
             if (this.deliveries >= this.totalDeliveries) {
               this.time.delayedCall(3000, () => this.levelComplete());
             } else {
-              // Spawn next bowl
               this.time.delayedCall(1000, () => this.spawnBowl(potX, potY));
             }
           }
         });
       } else {
-        // Return to pot
         this.tweens.add({
           targets: gameObject, x: potX, y: potY - 30,
           duration: 300
@@ -1976,17 +2133,14 @@ class Level4Scene extends Phaser.Scene {
   }
 
   spawnBowl(potX, potY) {
-    // Create a bowl graphic as a texture on the fly
     const bowl = this.add.graphics();
-    bowl.fillStyle(0x8B6914);
+    bowl.fillStyle(0x7A5A14);
     bowl.fillEllipse(0, 0, 28, 14);
-    bowl.fillStyle(0x7A5C10);
+    bowl.fillStyle(0x6A4A0E);
     bowl.fillEllipse(0, -2, 22, 9);
-    // Soup inside
-    bowl.fillStyle(0xDAA520, 0.7);
+    bowl.fillStyle(0xC4A050, 0.7);
     bowl.fillEllipse(0, -2, 18, 7);
-    // Steam
-    bowl.fillStyle(0xFFFFFF, 0.3);
+    bowl.fillStyle(0xFFFFFF, 0.25);
     bowl.fillCircle(-4, -10, 2);
     bowl.fillCircle(2, -12, 2);
     bowl.fillCircle(6, -9, 2);
@@ -2004,12 +2158,10 @@ class Level4Scene extends Phaser.Scene {
     });
 
     bowl.on('dragend', () => {
-      // If not dropped on a valid zone, return
       bowl.x = potX;
       bowl.y = potY - 30;
     });
 
-    // Pop in
     bowl.setScale(0);
     this.tweens.add({
       targets: bowl, scaleX: 1, scaleY: 1,
@@ -2018,30 +2170,29 @@ class Level4Scene extends Phaser.Scene {
   }
 
   levelComplete() {
-    this.instructionText.setText('');
-    this.quoteText.setText('');
+    this.instructionLabel.setText('');
+    this.quoteLabel.setText('');
 
-    // Final message
     const finalText = this.add.text(GAME_W / 2, GAME_H * 0.3,
       'The circle is closed.', {
-      fontSize: '28px', fontFamily: 'Georgia, serif',
-      color: '#F5DEB3'
-    }).setOrigin(0.5).setAlpha(0);
+      fontSize: '26px', fontFamily: FONT_DISPLAY,
+      color: '#e8d5a8', fontStyle: 'bold', letterSpacing: 2
+    }).setOrigin(0.5).setAlpha(0).setDepth(110);
 
     this.tweens.add({
-      targets: finalText, alpha: 1, duration: 1000
+      targets: finalText, alpha: 1, duration: 1200
     });
 
-    // Warm glow over the whole scene
+    // Warm glow wash
     const glow = this.add.graphics();
-    glow.fillStyle(0xFFA500, 0);
+    glow.fillStyle(0xE8963A, 0);
     glow.fillRect(0, 0, GAME_W, GAME_H);
     this.tweens.add({
-      targets: glow, alpha: 0.08, duration: 2000
+      targets: glow, alpha: 0.06, duration: 2000
     });
 
     this.time.delayedCall(4000, () => {
-      this.cameras.main.fadeOut(1500, 26, 18, 7);
+      this.cameras.main.fadeOut(1500, 15, 11, 4);
       this.time.delayedCall(1500, () => {
         this.scene.start('Narrative', {
           lines: [
@@ -2050,7 +2201,7 @@ class Level4Scene extends Phaser.Scene {
             '"There\'s a lot of things that happen\nwhen soup is going together.\nYou use a good mind, tell a lot of good stories, you share."',
             '"And all that energy is going into the soup\nand it\'s very meaningful."',
             '"It\'s not just a bowl of soup."',
-            '— Gary Parker',
+            '\u2014 Gary Parker',
             '"A little bowl of corn soup\ncan teach you a lot about life."',
             'Thank you for playing.',
             'Inspired by "Stories From The Land"\nfeaturing Karl Dockstader & Edgar\nof the Haudenosaunee Confederacy.',
@@ -2071,7 +2222,7 @@ const config = {
   width: GAME_W,
   height: GAME_H,
   parent: 'game-container',
-  backgroundColor: '#1A1207',
+  backgroundColor: '#0F0B04',
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
